@@ -1,0 +1,1 @@
+instagram-scraper -u dr.eamteam98 -p TestInstagram@2021 -f usernames.txt -t none --media-metadata -m 500
