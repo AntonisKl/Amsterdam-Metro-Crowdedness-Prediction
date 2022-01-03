@@ -137,3 +137,4 @@ dmypy.json
 
 notebooks_predictions/gvb_week/knmi/
 notebooks_predictions/gvb_week/gvb/
+notebooks_predictions/gvb_week/output/
