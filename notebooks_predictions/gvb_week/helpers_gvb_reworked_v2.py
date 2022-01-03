@@ -1,3 +1,6 @@
+import gzip
+import json
+
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -222,6 +225,17 @@ def get_knmi_preds():
     knmi_pred = spark.read.format("json").option("header", "true").load("s3a://knmi-knmi/topics/knmi/2021/*/*/*.json.gz", schema=knmi_pred_schema).select(*knmi_pred_cols)
     
     return knmi_pred
+
+def get_knmi_data(path):
+    json_obj_list = []
+    for filepath in glob(path):
+        if not os.path.isfile(filepath) or not os.path.getsize(filepath) > 0:
+            continue
+        # print(filepath)
+        with gzip.open(filepath, 'r') as fin:
+            json_obj_list.extend([json.loads(json_obj_str) for json_obj_str in fin])
+
+    return pd.DataFrame.from_records(json_obj_list)
 
 def get_prediction_df():
     """
@@ -451,7 +465,11 @@ def preprocess_metpre_data(df_raw):
                   'gr_w'], axis = 'columns', errors = 'ignore')
     # set datatypes of weather data to float
     df = df.set_index('datetime')
-    df = df.astype('float64').reset_index()
+
+    type_dict = {}
+    for column_name in df.columns:
+        type_dict[column_name] = 'float64'
+    df = df.astype(type_dict, errors='ignore').reset_index()
     # cloud cover similar to observations (0-9) & sight, but not really the same thing
     df['cloud_cover'] =  df['clouds'] / 12.5
     df['sight'] =  df['sight_m'] / 333
@@ -465,7 +483,7 @@ def preprocess_metpre_data(df_raw):
     df_hour['date'] = df_hour['datetime'].dt.date
     df_hour['date'] = df_hour['date'].astype('datetime64[ns]')
     df_hour['hour'] = df_hour['datetime'].dt.hour
-    
+
     return df_hour  # df_smooth
 
 def preprocess_covid_data(df_raw):
