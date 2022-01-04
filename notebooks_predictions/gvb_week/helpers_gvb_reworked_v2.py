@@ -325,8 +325,9 @@ def get_events():
     events = events.append({'Datum':datetime(2021, 6, 21)}, ignore_index=True) # EURO 2020 Noord-Macedonië - Nederland
     events = events.append({'Datum':datetime(2021, 6, 26)}, ignore_index=True) # EURO 2020 Wales - Denemarken
 
-    max_num_visitors = events['Aantal bezoekers'].max()
-    events['visitors_normalized'] = events['Aantal bezoekers'] / max_num_visitors
+    # Add normalized number of visitors
+    max_num_visitors_per_day = events.groupby(['Datum'])['Aantal bezoekers'].sum().max()
+    events['visitors_normalized'] = events['Aantal bezoekers'] / max_num_visitors_per_day
 
     return events
 
@@ -686,17 +687,18 @@ def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events)
 
     gvb_merged['holiday'] = np.where((gvb_merged['datetime'].isin(holidays['Date'].values)), 1, 0)
     gvb_merged['vacation'] = np.where((gvb_merged['datetime'].isin(vacations['date'].values)), 1, 0)
-    gvb_merged['planned_event'] = np.where((gvb_merged['datetime'].isin(events['Datum'].values)), 1, 0)
+    # gvb_merged['planned_event'] = np.where((gvb_merged['datetime'].isin(events['Datum'].values)), 1, 0)
 
     def get_event_visitors_norm(dt):
-        visitors_normalized = events[events['Datum'] == dt]['visitors_normalized'].values
+        visitors_normalized = events[events['Datum'] == dt]['visitors_normalized']
         if len(visitors_normalized) == 0:
-            return 0
-        visitors_normalized = visitors_normalized[0]
+            return 0  # no events found
 
-        if np.isnan(visitors_normalized):
-            return 0.5
-        return visitors_normalized
+        visitors_normalized = visitors_normalized.dropna()
+        if len(visitors_normalized) == 0:
+            return 0.5  # only nan values found
+
+        return visitors_normalized.sum()
 
     gvb_merged['planned_event'] = gvb_merged['datetime'].apply(lambda dt: get_event_visitors_norm(dt))
 
