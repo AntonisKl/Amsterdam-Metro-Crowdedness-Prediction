@@ -1,0 +1,50 @@
+So far we have worked on the following:
+- Fetching event data from Instagram
+- Sending request for API key to access the API of https://www.schedjoules.com/.
+- Sending request for API authorization for Facebook.
+- Preprocessing on GVB data
+- Design of UI
+- Exploring the possibility to use forecasting to predict crowdedness
+
+- Observations
+    - Each event is considered to affect all the hours of the day in which it happens.
+
+- Fixed bugs
+    - Problems with nan values:
+        * There are too many rows that are getting deleted. The features are declared after dropping nan values so many rows are dropped that should not be dropped.
+        * Covid stringency was NaN for most of the rows (~13700 out of ~17000 for Centraal Station), so NaN was replaced by 0.
+
+- Improvements
+    - Use normalized number of visitors (value from 0 to 1) for incorporating events as a feature. This way an event that had a lot of visitors is considered more influencing than an event that had less visitors. Also, if the corresponding day has more events it will be considered more influencial.
+      Technical details: 1. Add a new column to events dataframe which contains for each event -> number_of_visitors / max_number_of_visitors_per_day
+                         2. Add a new column to gvb dataframe wich contains for each hour -> sum(number_of_visitors / max_number_of_visitors_per_day for each event that happens that day)
+      Results: R-squared from 0.727 to 0.729 for Centraal Station - ~0.3% increase for both Centraal Station and Zuid.
+                MAE from 145.129 to 144.764 for Centraal Station -  ~0.3% decrease for both Centraal Station and Zuid.
+                RMSE from 252.117 to 251.314 for Centraal Station -  ~0.3% decrease for both Centraal Station and Zuid.
+
+    - If we remove previous week's check-ins and check-outs from the features, we get these metrics which are a huge improvement over the original model's:
+    Centraal Station
+    RandomForestRegressor(random_state=1),
+    R-squared: 0.8897040024265483,
+    MAE: 108.05623188405795,
+    RMSE: 159.29458900259996
+
+    Zuid
+    RandomForestRegressor(random_state=1),
+    R-squared: 0.8539510043445495,
+    MAE: 75.96007812500002,
+    RMSE: 104.34639016201639
+
+    - TODO: Remove possibly irrelevant features like global_radiation
+
+
+What to propose to Ashish:
+Research question: How can we improve machine learning models for crowdedness prediction in order to make them responsive to external factors?
+Answer:
+- Event data: Integrate event data as a scaled value from 0 to 1 depending on the attendance. Currently events are used as booleans.
+- Weather data: Change how weather data are used. Remove and add some columns taken from the KNMI dataset.
+- Covid data: Currently the covid stringency level is pulled from an API, but when looking into this source it doesn't seem to be good data as The Netherlands is currently tagged at 63 (with a very strict lockdown) while countries like France (72) and Greece (80) have a much higher stringency level but dont have any lockdown. We assume this stringency level is largely based on cases/deaths per inhabitants but this is not really the data that we care about. We will look for better sources or otherwise conduct our own historical stringency levels for The Netherlands.
+- Set station-specific hyperparameters of current model.
+
+- Combine the current machine learning model with a forecasting model (this is not easily scalable so not very suitable for industry use)
+- We will also use the Facebook Prophet. This is a state-of-the-art model that was introduced by Facebook (S. J. Taylor & Letham, 2018), originally for forecasting daily data with weekly and yearly seasonality, plus holiday effects. It was later extended to cover more types of seasonal data. It works best with time series that have strong seasonality and several seasons of historical data. So it looks to be a perfect fit for our context.
