@@ -231,7 +231,7 @@ def get_knmi_data(path):
     for filepath in glob(path):
         if not os.path.isfile(filepath) or not os.path.getsize(filepath) > 0:
             continue
-        # print(filepath)
+
         with gzip.open(filepath, 'r') as fin:
             json_obj_list.extend([json.loads(json_obj_str) for json_obj_str in fin])
 
