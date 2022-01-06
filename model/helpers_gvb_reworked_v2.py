@@ -288,19 +288,10 @@ def get_vacations():
 
     return vacations_date_only
 
-def get_events():
+def get_events(include_instagram_events=True):
     """
     Event data from static file. We can store events in the database in the near future. When possible, we can get it from an API.
     """
-
-    # Prepare instagram events
-    events_instagram = pd.read_csv('../instagram-event-scraper/events.csv', usecols=[1, 6])
-    events_instagram.rename(columns={'location': 'Locatie', 'event_date': 'Datum'}, inplace=True)
-    events_instagram['Datum'] = events_instagram['Datum'].astype('datetime64[ns]')
-    events_instagram['Start show'] = events_instagram['Datum'].apply(lambda datetime: datetime.time())
-    events_instagram['Datum'] = events_instagram['Datum'].apply(
-        lambda datetime: datetime.replace(hour=0, minute=0, second=0))
-    print(events_instagram)
 
     events = pd.read_excel('events_zuidoost.xlsx', sheet_name='Resultaat', header=1)
 
@@ -312,8 +303,17 @@ def get_events():
     events.drop(events.loc[events['Locatie'] == 'Overig'].index, inplace=True)
     events['Datum'] = events['Datum'].astype('datetime64[ns]')
 
-    # Concatenate with instagram events
-    events = pd.concat([events, events_instagram], axis=0, ignore_index=True)
+    if include_instagram_events:
+        # Prepare instagram events
+        events_instagram = pd.read_csv('../instagram-event-scraper/events.csv', usecols=[1, 6])
+        events_instagram.rename(columns={'location': 'Locatie', 'event_date': 'Datum'}, inplace=True)
+        events_instagram['Datum'] = events_instagram['Datum'].astype('datetime64[ns]')
+        events_instagram['Start show'] = events_instagram['Datum'].apply(lambda datetime: datetime.time())
+        events_instagram['Datum'] = events_instagram['Datum'].apply(
+            lambda datetime: datetime.replace(hour=0, minute=0, second=0))
+
+        # Combine events datasets
+        events = pd.concat([events, events_instagram], axis=0, ignore_index=True)
 
     # Fix location names
     events['Locatie'] = events['Locatie'].apply(lambda x: x.strip())  # Remove spaces
@@ -708,7 +708,7 @@ def train_random_forest_regressor(X_train, y_train, X_val, y_val, hyperparameter
     rmse = np.sqrt(metrics.mean_squared_error(y_val, y_pred))
     return [model, r_squared, mae, rmse]
 
-def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events):
+def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events, use_normalized_visitors=True):
 
     gvb_merged = pd.merge(left=gvb, right=weather, left_on=['datetime', 'hour'], right_on=['date', 'hour'], how='left')
     gvb_merged.drop(columns=['date'], inplace=True)
@@ -718,20 +718,21 @@ def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events)
 
     gvb_merged['holiday'] = np.where((gvb_merged['datetime'].isin(holidays['Date'].values)), 1, 0)
     gvb_merged['vacation'] = np.where((gvb_merged['datetime'].isin(vacations['date'].values)), 1, 0)
-    # gvb_merged['planned_event'] = np.where((gvb_merged['datetime'].isin(events['Datum'].values)), 1, 0)
+    if use_normalized_visitors:  # Use events as ratio of number of visitors to max attendance per day
+        def get_event_visitors_norm(dt):
+            visitors_normalized = events[events['Datum'] == dt]['visitors_normalized']
+            if len(visitors_normalized) == 0:
+                return 0  # No events found
 
-    def get_event_visitors_norm(dt):
-        visitors_normalized = events[events['Datum'] == dt]['visitors_normalized']
-        if len(visitors_normalized) == 0:
-            return 0  # no events found
+            visitors_normalized = visitors_normalized.dropna()
+            if len(visitors_normalized) == 0:
+                return 0.5  # Only nan values found
 
-        visitors_normalized = visitors_normalized.dropna()
-        if len(visitors_normalized) == 0:
-            return 0.5  # only nan values found
+            return visitors_normalized.sum()
 
-        return visitors_normalized.sum()
-
-    gvb_merged['planned_event'] = gvb_merged['datetime'].apply(lambda dt: get_event_visitors_norm(dt))
+        gvb_merged['planned_event'] = gvb_merged['datetime'].apply(lambda dt: get_event_visitors_norm(dt))
+    else:  # Use events as boolean feature
+        gvb_merged['planned_event'] = np.where((gvb_merged['datetime'].isin(events['Datum'].values)), 1, 0)
 
     return gvb_merged
 
