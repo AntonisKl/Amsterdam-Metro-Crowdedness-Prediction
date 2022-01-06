@@ -135,6 +135,6 @@ dmypy.json
 **/.idea/vcs.xml
 **/.idea/jsLibraryMappings.xml
 
-notebooks_predictions/gvb_week/knmi/
-notebooks_predictions/gvb_week/gvb/
-notebooks_predictions/gvb_week/output/
+model/knmi/
+model/gvb/
+model/output/

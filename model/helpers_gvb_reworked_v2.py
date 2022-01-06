@@ -293,37 +293,68 @@ def get_events():
     Event data from static file. We can store events in the database in the near future. When possible, we can get it from an API.
     """
 
+    # Prepare instagram events
+    events_instagram = pd.read_csv('../instagram-event-scraper/events.csv', usecols=[1, 6])
+    events_instagram.rename(columns={'location': 'Locatie', 'event_date': 'Datum'}, inplace=True)
+    events_instagram['Datum'] = events_instagram['Datum'].astype('datetime64[ns]')
+    events_instagram['Start show'] = events_instagram['Datum'].apply(lambda datetime: datetime.time())
+    events_instagram['Datum'] = events_instagram['Datum'].apply(
+        lambda datetime: datetime.replace(hour=0, minute=0, second=0))
+    print(events_instagram)
+
     events = pd.read_excel('events_zuidoost.xlsx', sheet_name='Resultaat', header=1)
 
     # Clean
     events.dropna(how='all', inplace=True)
-    events.drop(events.loc[events['Datum']=='Niet bijzonder evenementen zijn hierboven niet meegenomen.'].index, inplace=True)
+    events.drop(events.loc[events['Datum'] == 'Niet bijzonder evenementen zijn hierboven niet meegenomen.'].index,
+                inplace=True)
     events.drop(events.loc[events['Locatie'].isna()].index, inplace=True)
-    events.drop(events.loc[events['Locatie']=='Overig'].index, inplace=True)
+    events.drop(events.loc[events['Locatie'] == 'Overig'].index, inplace=True)
     events['Datum'] = events['Datum'].astype('datetime64[ns]')
 
+    # Concatenate with instagram events
+    events = pd.concat([events, events_instagram], axis=0, ignore_index=True)
+
     # Fix location names
-    events['Locatie'] = events['Locatie'].apply(lambda x: x.strip()) # Remove spaces
+    events['Locatie'] = events['Locatie'].apply(lambda x: x.strip())  # Remove spaces
     events['Locatie'] = np.where(events['Locatie'] == 'Ziggo dome', 'Ziggo Dome', events['Locatie'])
     events['Locatie'] = np.where(events['Locatie'] == 'Ziggo Dome (2x)', 'Ziggo Dome', events['Locatie'])
 
+    # Convert instagram usernames to venue names
+    events['Locatie'] = np.where(events['Locatie'] == 'ziggodome', 'Ziggo Dome', events['Locatie'])
+    events['Locatie'] = np.where(events['Locatie'] == 'paradisoadam', 'Paradiso', events['Locatie'])
+    events['Locatie'] = np.where(events['Locatie'] == 'afaslive', 'Afas Live', events['Locatie'])
+    events['Locatie'] = np.where(events['Locatie'] == 'johancruijffarena', 'Arena', events['Locatie'])
+    events['Locatie'] = np.where(events['Locatie'] == 'melkwegamsterdam', 'Melkweg', events['Locatie'])
+    events['Locatie'] = np.where(events['Locatie'] == 'theatercarre', 'Royal Theater Carré', events['Locatie'])
+    events['Locatie'] = np.where(events['Locatie'] == 'beursvanberlageofficial', 'Beurs van Berlage', events['Locatie'])
+    events['Locatie'] = np.where(events['Locatie'] == 'concertgebouw', 'Concertgebouw', events['Locatie'])
+    events['Locatie'] = np.where(events['Locatie'] == 'olympischstadion', 'Olympisch Stadion', events['Locatie'])
+
     # Get events from 2019 from static file
-    events = events[events['Datum'].dt.year>=2019].copy()
+    events = events[events['Datum'].dt.year >= 2019].copy()
     events.reset_index(inplace=True)
     events.drop(columns=['index'], inplace=True)
     events
 
     # Add 2020-present events manually
-    events = events.append({'Datum':datetime(2020, 1, 19)}, ignore_index=True) # Ajax - Sparta
-    events = events.append({'Datum':datetime(2020, 2, 2)}, ignore_index=True) # Ajax - PSV
-    events = events.append({'Datum':datetime(2020, 2, 16)}, ignore_index=True) # Ajax - RKC
-    events = events.append({'Datum':datetime(2020, 1, 3)}, ignore_index=True) # Ajax - AZ
+    events = events.append({'Locatie': 'Arena', 'Datum': datetime(2020, 1, 19)}, ignore_index=True)  # Ajax - Sparta
+    events = events.append({'Locatie': 'Arena', 'Datum': datetime(2020, 2, 2)}, ignore_index=True)  # Ajax - PSV
+    events = events.append({'Locatie': 'Arena', 'Datum': datetime(2020, 2, 16)}, ignore_index=True)  # Ajax - RKC
+    events = events.append({'Locatie': 'Arena', 'Datum': datetime(2020, 1, 3)}, ignore_index=True)  # Ajax - AZ
 
     # Euro 2021
-    events = events.append({'Datum':datetime(2021, 6, 13)}, ignore_index=True) # EURO 2020 Nederland- Oekraïne
-    events = events.append({'Datum':datetime(2021, 6, 17)}, ignore_index=True) # EURO 2020 Nederland- Oostenrijk
-    events = events.append({'Datum':datetime(2021, 6, 21)}, ignore_index=True) # EURO 2020 Noord-Macedonië - Nederland
-    events = events.append({'Datum':datetime(2021, 6, 26)}, ignore_index=True) # EURO 2020 Wales - Denemarken
+    events = events.append({'Locatie': 'Arena', 'Datum': datetime(2021, 6, 13)},
+                           ignore_index=True)  # EURO 2020 Nederland- Oekraïne
+    events = events.append({'Locatie': 'Arena', 'Datum': datetime(2021, 6, 17)},
+                           ignore_index=True)  # EURO 2020 Nederland- Oostenrijk
+    events = events.append({'Locatie': 'Arena', 'Datum': datetime(2021, 6, 21)},
+                           ignore_index=True)  # EURO 2020 Noord-Macedonië - Nederland
+    events = events.append({'Locatie': 'Arena', 'Datum': datetime(2021, 6, 26)},
+                           ignore_index=True)  # EURO 2020 Wales - Denemarken
+
+    # Remove duplicate events
+    events.drop_duplicates(subset=['Locatie', 'Datum', 'Start show'], inplace=True)
 
     # Add normalized number of visitors
     max_num_visitors_per_day = events.groupby(['Datum'])['Aantal bezoekers'].sum().max()
