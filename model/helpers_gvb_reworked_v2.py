@@ -1,3 +1,4 @@
+import configparser
 import gzip
 import json
 
@@ -27,6 +28,13 @@ import matplotlib.pyplot as plt
 # spark = SparkSession \
 #     .builder \
 #     .getOrCreate()
+
+config = configparser.ConfigParser()
+config.optionxform = str
+config.read('config.ini')
+config_use_normalized_visitors = config['DEFAULT']['UseNormalizedVisitors']
+config_include_instagram_events = config['DEFAULT']['IncludeInstagramEvents']
+
 
 def get_minio_herkomst_2020 ():
 
@@ -288,7 +296,7 @@ def get_vacations():
 
     return vacations_date_only
 
-def get_events(include_instagram_events=True):
+def get_events(include_instagram_events=config_include_instagram_events):
     """
     Event data from static file. We can store events in the database in the near future. When possible, we can get it from an API.
     """
@@ -708,7 +716,7 @@ def train_random_forest_regressor(X_train, y_train, X_val, y_val, hyperparameter
     rmse = np.sqrt(metrics.mean_squared_error(y_val, y_pred))
     return [model, r_squared, mae, rmse]
 
-def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events, use_normalized_visitors=True):
+def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events, use_normalized_visitors=config_use_normalized_visitors):
 
     gvb_merged = pd.merge(left=gvb, right=weather, left_on=['datetime', 'hour'], right_on=['date', 'hour'], how='left')
     gvb_merged.drop(columns=['date'], inplace=True)
@@ -1099,3 +1107,30 @@ def create_max_df(df, de_wallen, start_datetime_month, end_datetime_month):
         cmsa_loc = gbl['cmsa_'+str(m)]
 
     return cmsa_loc
+
+
+# models: array in format [[<SciKit model object>, <number>, <number>, <number>], ... ]
+def log_models(models, stations):
+    models_log_dict = {'Station': [], 'Model': []}
+    for key in config['DEFAULT'].keys():
+        models_log_dict[key] = []
+    models_log_dict.update({'R-squared': [], 'MAE': [], 'RMSE': []})
+
+    for i, model in enumerate(models):
+        models_log_dict['Station'].append(stations[i])
+        models_log_dict['Model'].append(model[0])
+        for key, value in config['DEFAULT'].items():
+            models_log_dict[key].append(value)
+        models_log_dict['R-squared'].append(round(model[1], 3))
+        models_log_dict['MAE'].append(round(model[2], 3))
+        models_log_dict['RMSE'].append(round(model[3], 3))
+
+    models_log_df = pd.DataFrame(models_log_dict)
+
+    if os.path.exists('output/models_log.csv'):
+        old_models_log_df = pd.read_csv('output/models_log.csv')
+        models_log_df = pd.concat([old_models_log_df, models_log_df])
+        models_log_df.drop_duplicates(subset=['Station'] + list(config['DEFAULT'].keys()), inplace=True)
+
+    # print(models_log_df)
+    models_log_df.to_csv('output/models_log.csv', index=False)
