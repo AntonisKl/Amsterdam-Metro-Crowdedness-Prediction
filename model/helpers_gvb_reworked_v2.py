@@ -147,7 +147,33 @@ def get_gvb_data(file_prefix):
             gvb_df = gvb_df.append(current_df)
 
     return gvb_df
+# Ramon Dop - 12 jan 2021
+def get_covid_measures():
+    # if this gives an error it is because the name of the file has changed on the website, please consult 
+    # https://www.ecdc.europa.eu/en/publications-data/download-data-response-measures-covid-19
+    covid_df = None
+    from datetime import datetime
 
+    
+    measures_raw = pd.read_csv (r'response_graphs_data_2021-12-20.csv') 
+    measures_raw = measures_raw.fillna(0)
+    measures_raw['date_end'] = measures_raw['date_end'].replace(0, datetime.today().strftime('%Y-%m-%d'))
+    measures_rawNL = measures_raw[measures_raw['Country']=='Netherlands']
+    
+    measures_rawNL["date"] = measures_rawNL.apply(
+        lambda x: pd.date_range(x["date_start"], x["date_end"]), axis=1
+    )
+    measures_rawNL = (
+        measures_rawNL.explode("date")
+        .drop(columns=["date_start", "date_end"])
+    )
+    measures_rawNL['dummy'] = 1
+    df_out = pd.pivot(measures_rawNL, index='date', columns="Response_measure", values="dummy").reset_index()
+    df_out.set_index('date', inplace=True)
+    covid_df = df_out.where(df_out==1, other=0)
+    
+    return covid_df
+# End
 def read_csv_dir(dir):
 
     read_csv_beta = pd.read_csv(dir,sep=';')
