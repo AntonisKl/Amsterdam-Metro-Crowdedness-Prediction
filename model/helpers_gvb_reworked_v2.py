@@ -34,6 +34,7 @@ config.optionxform = str
 config.read('config.ini')
 config_use_normalized_visitors = config['DEFAULT']['UseNormalizedVisitors']
 config_include_instagram_events = config['DEFAULT']['IncludeInstagramEvents']
+config_include_ticketmaster_events = config['DEFAULT']['IncludeTicketmasterEvents']
 
 
 def get_minio_herkomst_2020 ():
@@ -322,7 +323,7 @@ def get_vacations():
 
     return vacations_date_only
 
-def get_events(include_instagram_events=config_include_instagram_events):
+def get_events(include_instagram_events=config_include_instagram_events, include_ticketmaster_events=config_include_ticketmaster_events):
     """
     Event data from static file. We can store events in the database in the near future. When possible, we can get it from an API.
     """
@@ -348,6 +349,25 @@ def get_events(include_instagram_events=config_include_instagram_events):
 
         # Combine events datasets
         events = pd.concat([events, events_instagram], axis=0, ignore_index=True)
+
+    if include_ticketmaster_events:
+        # Prepare ticketmaster events
+        for filepath in glob('../ticketmaster-event-fetcher/events*.csv'):
+            if not os.path.isfile(filepath) or not os.path.getsize(filepath) > 0:
+                continue
+
+            events_ticketmaster = pd.read_csv(filepath, usecols=[1, 2, 3])
+            events_ticketmaster.rename(columns={'venue': 'Locatie', 'datetime': 'Datum', 'name': 'Naam evenement'},
+                                       inplace=True)
+            events_ticketmaster['Datum'] = events_ticketmaster['Datum'].astype('datetime64[ns]')
+            events_ticketmaster['Start show'] = events_ticketmaster['Datum'].apply(lambda datetime: datetime.time())
+            events_ticketmaster['Datum'] = events_ticketmaster['Datum'].apply(
+                lambda datetime: datetime.replace(hour=0, minute=0, second=0))
+            events_ticketmaster['Locatie'] = np.where(events_ticketmaster['Locatie'] == 'Koninklijk Theater Carre',
+                                                      'Royal Theater Carré', events_ticketmaster['Locatie'])
+
+            # Combine events datasets
+            events = pd.concat([events, events_ticketmaster], axis=0, ignore_index=True)
 
     # Fix location names
     events['Locatie'] = events['Locatie'].apply(lambda x: x.strip())  # Remove spaces
