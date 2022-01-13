@@ -16,6 +16,7 @@ import time
 from sklearn.ensemble import RandomForestRegressor
 from sklearn import metrics
 import requests
+import re
 
 # from pyspark.sql import SparkSession
 # from pyspark.sql.functions import substring, length, col, expr
@@ -150,13 +151,18 @@ def get_gvb_data(file_prefix):
     return gvb_df
 # Ramon Dop - 12 jan 2021
 def get_covid_measures():
-    # if this gives an error it is because the name of the file has changed on the website, please consult 
-    # https://www.ecdc.europa.eu/en/publications-data/download-data-response-measures-covid-19
-    covid_df = None
-    from datetime import datetime
-
+    url = "https://www.ecdc.europa.eu/en/publications-data/download-data-response-measures-covid-19"
+    response = requests.get(url)
+    # if this gives an error it is because the url has changed or the name of the file has changed on the website, please 
+    # consult https://www.ecdc.europa.eu/en/publications-data/download-data-response-measures-covid-19
+    if response.status_code == 200:
+        csv_url =         re.findall(r'https:\/\/www\.ecdc\.europa\.eu\/sites\/default\/files\/documents\/response_graphs_data_\d{4}-\d{2}-\d{2}.csv', response.text)[0]
+        measures_raw = pd.read_csv(csv_url)
+    else:
+        measures_raw = pd.read_csv (r'response_graphs_data_2021-12-20.csv')
     
-    measures_raw = pd.read_csv (r'response_graphs_data_2021-12-20.csv') 
+    covid_df = None
+  
     measures_raw = measures_raw.fillna(0)
     measures_raw['date_end'] = measures_raw['date_end'].replace(0, datetime.today().strftime('%Y-%m-%d'))
     measures_rawNL = measures_raw[measures_raw['Country']=='Netherlands']
