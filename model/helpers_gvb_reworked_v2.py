@@ -353,6 +353,19 @@ def get_events(include_instagram_events=config_include_instagram_events, include
         events_instagram['Datum'] = events_instagram['Datum'].apply(
             lambda datetime: datetime.replace(hour=0, minute=0, second=0))
 
+        usernames_venues = {'ziggodome': 'Ziggo Dome',
+                            'paradisoadam': 'Paradiso',
+                            'afaslive': 'Afas Live',
+                            'johancruijffarena': 'Arena',
+                            'melkwegamsterdam': 'Melkweg',
+                            'theatercarre': 'Royal Theater Carré',
+                            'beursvanberlageofficial': 'Beurs van Berlage',
+                            'concertgebouw': 'Concertgebouw',
+                            'olympischstadion': 'Olympisch Stadion'}
+
+        # Convert instagram usernames to venue names
+        events_instagram['Locatie'] = events_instagram['Locatie'].apply(lambda username: usernames_venues[username])
+
         # Combine events datasets
         events = pd.concat([events, events_instagram], axis=0, ignore_index=True)
 
@@ -379,17 +392,6 @@ def get_events(include_instagram_events=config_include_instagram_events, include
     events['Locatie'] = events['Locatie'].apply(lambda x: x.strip())  # Remove spaces
     events['Locatie'] = np.where(events['Locatie'] == 'Ziggo dome', 'Ziggo Dome', events['Locatie'])
     events['Locatie'] = np.where(events['Locatie'] == 'Ziggo Dome (2x)', 'Ziggo Dome', events['Locatie'])
-
-    # Convert instagram usernames to venue names
-    events['Locatie'] = np.where(events['Locatie'] == 'ziggodome', 'Ziggo Dome', events['Locatie'])
-    events['Locatie'] = np.where(events['Locatie'] == 'paradisoadam', 'Paradiso', events['Locatie'])
-    events['Locatie'] = np.where(events['Locatie'] == 'afaslive', 'Afas Live', events['Locatie'])
-    events['Locatie'] = np.where(events['Locatie'] == 'johancruijffarena', 'Arena', events['Locatie'])
-    events['Locatie'] = np.where(events['Locatie'] == 'melkwegamsterdam', 'Melkweg', events['Locatie'])
-    events['Locatie'] = np.where(events['Locatie'] == 'theatercarre', 'Royal Theater Carré', events['Locatie'])
-    events['Locatie'] = np.where(events['Locatie'] == 'beursvanberlageofficial', 'Beurs van Berlage', events['Locatie'])
-    events['Locatie'] = np.where(events['Locatie'] == 'concertgebouw', 'Concertgebouw', events['Locatie'])
-    events['Locatie'] = np.where(events['Locatie'] == 'olympischstadion', 'Olympisch Stadion', events['Locatie'])
 
     # Get events from 2019 from static file
     events = events[events['Datum'].dt.year >= 2019].copy()
