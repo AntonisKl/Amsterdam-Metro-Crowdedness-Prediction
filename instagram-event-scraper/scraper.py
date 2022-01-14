@@ -68,7 +68,7 @@ def main():
     locale.setlocale(locale.LC_TIME, 'nl_NL')
 
     output_csv = 'events.csv'
-    write_header = os.path.exists(output_csv) and os.stat(output_csv).st_size == 0
+    write_header = not os.path.exists(output_csv) or (os.path.exists(output_csv) and os.stat(output_csv).st_size == 0)
     events_df = None
     usernames_f = open('usernames.txt', 'r', encoding='utf8')
     for username in usernames_f.readlines():
