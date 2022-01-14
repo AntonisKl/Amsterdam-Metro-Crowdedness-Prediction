@@ -741,8 +741,21 @@ def get_future_df(features, gvb_data, covid_stringency, holidays, vacations, wea
     df['holiday'] = np.where((df['datetime'].isin(holidays['Date'].values)), 1, 0)
     df['vacation'] = np.where((df['datetime'].isin(vacations['date'].values)), 1, 0)
 
-    # Get events from database in future!
-    df['planned_event'] = np.where((df['datetime'].isin(events['Datum'].values)), 1, 0)
+    if config_use_normalized_visitors:  # Use events as ratio of number of visitors to max attendance per day
+        def get_event_visitors_norm(dt):
+            visitors_normalized = events[events['Datum'] == dt]['visitors_normalized']
+            if len(visitors_normalized) == 0:
+                return 0  # No events found
+
+            visitors_normalized = visitors_normalized.dropna()
+            if len(visitors_normalized) == 0:
+                return 0.5  # Only nan values found
+
+            return visitors_normalized.sum()
+
+        df['planned_event'] = df['datetime'].apply(lambda dt: get_event_visitors_norm(dt))
+    else:  # Use events as boolean feature
+        df['planned_event'] = np.where((df['datetime'].isin(events['Datum'].values)), 1, 0)
 
     # Set forecast for temperature, rain, and wind speed.
     df = pd.merge(left=df, right=weather.drop(columns=['datetime']), left_on=['datetime', 'hour'], right_on=['date', 'hour'], how='left')
