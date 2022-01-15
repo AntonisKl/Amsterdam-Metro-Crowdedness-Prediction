@@ -33,9 +33,12 @@ import matplotlib.pyplot as plt
 config = configparser.ConfigParser()
 config.optionxform = str
 config.read('config.ini')
-config_use_normalized_visitors = config['DEFAULT']['UseNormalizedVisitors']
-config_include_instagram_events = config['DEFAULT']['IncludeInstagramEvents']
-config_include_ticketmaster_events = config['DEFAULT']['IncludeTicketmasterEvents']
+config_use_normalized_visitors = config['DEFAULT'].getboolean('UseNormalizedVisitors')
+config_include_instagram_events = config['DEFAULT'].getboolean('IncludeInstagramEvents')
+config_include_ticketmaster_events = config['DEFAULT'].getboolean('IncludeTicketmasterEvents')
+config_use_time_of_events = config['DEFAULT'].getboolean('UseTimeOfEvents')
+config_max_hours_before_event = config['DEFAULT'].getint('MaxHoursBeforeEvent')
+config_max_minutes_before_event = config['DEFAULT'].getint('MaxMinutesBeforeEvent')
 
 
 def get_minio_herkomst_2020 ():
@@ -160,13 +163,13 @@ def get_covid_measures():
         measures_raw = pd.read_csv(csv_url)
     else:
         measures_raw = pd.read_csv (r'response_graphs_data_2021-12-20.csv')
-    
+
     covid_df = None
-  
+
     measures_raw = measures_raw.fillna(0)
     measures_raw['date_end'] = measures_raw['date_end'].replace(0, datetime.today().strftime('%Y-%m-%d'))
     measures_rawNL = measures_raw[measures_raw['Country']=='Netherlands']
-    
+
     measures_rawNL["date"] = measures_rawNL.apply(
         lambda x: pd.date_range(x["date_start"], x["date_end"]), axis=1
     )
@@ -178,7 +181,7 @@ def get_covid_measures():
     df_out = pd.pivot(measures_rawNL, index='date', columns="Response_measure", values="dummy").reset_index()
     df_out.set_index('date', inplace=True)
     covid_df = df_out.where(df_out==1, other=0)
-    
+
     return covid_df
 # End
 def read_csv_dir(dir):
@@ -329,7 +332,7 @@ def get_vacations():
 
     return vacations_date_only
 
-def get_events(include_instagram_events=config_include_instagram_events, include_ticketmaster_events=config_include_ticketmaster_events):
+def get_events():
     """
     Event data from static file. We can store events in the database in the near future. When possible, we can get it from an API.
     """
@@ -342,16 +345,21 @@ def get_events(include_instagram_events=config_include_instagram_events, include
                 inplace=True)
     events.drop(events.loc[events['Locatie'].isna()].index, inplace=True)
     events.drop(events.loc[events['Locatie'] == 'Overig'].index, inplace=True)
-    events['Datum'] = events['Datum'].astype('datetime64[ns]')
 
-    if include_instagram_events:
+    if config_use_time_of_events:
+        events.dropna(subset=['Start show'], inplace=True)
+        events['Start show'] = events['Start show'].astype(str).apply(lambda time: time[:5])
+
+    events['Datum'] = events['Datum'].astype('datetime64[ns]')
+    if config_use_time_of_events:
+        events['Datetime'] = pd.to_datetime(
+            events['Datum'].dt.strftime('%Y-%m-%d') + ' ' + events['Start show'].astype(str))
+
+    if config_include_instagram_events:
         # Prepare instagram events
         events_instagram = pd.read_csv('../instagram-event-scraper/events.csv', usecols=[1, 6])
         events_instagram.rename(columns={'location': 'Locatie', 'event_date': 'Datum'}, inplace=True)
-        events_instagram['Datum'] = events_instagram['Datum'].astype('datetime64[ns]')
-        events_instagram['Start show'] = events_instagram['Datum'].apply(lambda datetime: datetime.time())
-        events_instagram['Datum'] = events_instagram['Datum'].apply(
-            lambda datetime: datetime.replace(hour=0, minute=0, second=0))
+        preprocess_events_dates(events_instagram)
 
         usernames_venues = {'ziggodome': 'Ziggo Dome',
                             'paradisoadam': 'Paradiso',
@@ -369,7 +377,7 @@ def get_events(include_instagram_events=config_include_instagram_events, include
         # Combine events datasets
         events = pd.concat([events, events_instagram], axis=0, ignore_index=True)
 
-    if include_ticketmaster_events:
+    if config_include_ticketmaster_events:
         # Prepare ticketmaster events
         for filepath in glob('../ticketmaster-event-fetcher/events*.csv'):
             if not os.path.isfile(filepath) or not os.path.getsize(filepath) > 0:
@@ -378,10 +386,8 @@ def get_events(include_instagram_events=config_include_instagram_events, include
             events_ticketmaster = pd.read_csv(filepath, usecols=[1, 2, 3])
             events_ticketmaster.rename(columns={'venue': 'Locatie', 'datetime': 'Datum', 'name': 'Naam evenement'},
                                        inplace=True)
-            events_ticketmaster['Datum'] = events_ticketmaster['Datum'].astype('datetime64[ns]')
-            events_ticketmaster['Start show'] = events_ticketmaster['Datum'].apply(lambda datetime: datetime.time())
-            events_ticketmaster['Datum'] = events_ticketmaster['Datum'].apply(
-                lambda datetime: datetime.replace(hour=0, minute=0, second=0))
+            preprocess_events_dates(events_ticketmaster)
+
             events_ticketmaster['Locatie'] = np.where(events_ticketmaster['Locatie'] == 'Koninklijk Theater Carre',
                                                       'Royal Theater Carré', events_ticketmaster['Locatie'])
 
@@ -424,6 +430,15 @@ def get_events(include_instagram_events=config_include_instagram_events, include
 
     return events
 
+
+def preprocess_events_dates(events_df):
+    events_df['Datum'] = events_df['Datum'].astype('datetime64[ns]')
+    events_df['Datetime'] = events_df['Datum']
+    events_df['Start show'] = events_df['Datum'].apply(lambda datetime: datetime.time())
+    events_df['Datum'] = events_df['Datum'].apply(
+        lambda datetime: datetime.replace(hour=0, minute=0, second=0))
+
+
 def merge_csv_json(bestemming_csv, herkomst_csv, bestemming_json, herkomst_json):
     bestemming = pd.concat([bestemming_csv, bestemming_json]).copy()
     herkomst = pd.concat([herkomst_csv, herkomst_json]).copy()
@@ -460,6 +475,11 @@ def preprocess_gvb_data_for_modelling(gvb_df, station):
     df['month'] = df['datetime'].dt.month
     df['year'] = df['datetime'].dt.year
     df['weekday'] = df['datetime'].dt.weekday
+
+    if config_use_time_of_events:
+        df["datetime_full"] = pd.to_datetime(
+            df['datetime'].dt.strftime('%Y-%m-%d') + ' '
+            + df['UurgroepOmschrijving'].apply(lambda time_interval: time_interval[:5]))
 
     hours = pd.get_dummies(df['hour'], prefix='hour')
     days = pd.get_dummies(df['weekday'], prefix='weekday')
@@ -718,6 +738,7 @@ def get_future_df(features, gvb_data, covid_stringency, holidays, vacations, wea
     df['year'] = df['datetime'].dt.year
     df['weekday'] = df['datetime'].dt.weekday
     df['stringency'] = covid_stringency
+    df['datetime_full'] = df['datetime']
     df['datetime'] = df.apply(lambda x: x['datetime'].date(), axis=1)
     df['datetime'] = df['datetime'].astype('datetime64[ns]')
 
@@ -743,21 +764,7 @@ def get_future_df(features, gvb_data, covid_stringency, holidays, vacations, wea
     df['holiday'] = np.where((df['datetime'].isin(holidays['Date'].values)), 1, 0)
     df['vacation'] = np.where((df['datetime'].isin(vacations['date'].values)), 1, 0)
 
-    if config_use_normalized_visitors:  # Use events as ratio of number of visitors to max attendance per day
-        def get_event_visitors_norm(dt):
-            visitors_normalized = events[events['Datum'] == dt]['visitors_normalized']
-            if len(visitors_normalized) == 0:
-                return 0  # No events found
-
-            visitors_normalized = visitors_normalized.dropna()
-            if len(visitors_normalized) == 0:
-                return 0.5  # Only nan values found
-
-            return visitors_normalized.sum()
-
-        df['planned_event'] = df['datetime'].apply(lambda dt: get_event_visitors_norm(dt))
-    else:  # Use events as boolean feature
-        df['planned_event'] = np.where((df['datetime'].isin(events['Datum'].values)), 1, 0)
+    df['planned_event'] = df.apply(lambda row: get_planned_event_value(row, events), axis=1)
 
     # Set forecast for temperature, rain, and wind speed.
     df = pd.merge(left=df, right=weather.drop(columns=['datetime']), left_on=['datetime', 'hour'], right_on=['date', 'hour'], how='left')
@@ -783,7 +790,28 @@ def train_random_forest_regressor(X_train, y_train, X_val, y_val, hyperparameter
     rmse = np.sqrt(metrics.mean_squared_error(y_val, y_pred))
     return [model, r_squared, mae, rmse]
 
-def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events, use_normalized_visitors=config_use_normalized_visitors):
+
+def get_planned_event_value(gvb_merged_row, events_df):
+    mask = (events_df['Datum'] == gvb_merged_row['datetime'])
+    if config_use_time_of_events:
+        mask = (gvb_merged_row['datetime_full'] >= events_df['Datetime'] - timedelta(hours=config_max_hours_before_event, minutes=config_max_minutes_before_event)) & \
+               (gvb_merged_row['datetime_full'] <= events_df['Datetime'])
+
+    if config_use_normalized_visitors:
+        visitors_normalized = events_df[mask]['visitors_normalized']
+        if len(visitors_normalized) == 0:
+            return 0  # No events found
+
+        visitors_normalized = visitors_normalized.dropna()
+        if len(visitors_normalized) == 0:
+            return 0.5  # Only nan values found
+
+        return visitors_normalized.sum()
+    else:
+        return 1 if len(events_df[mask]) > 0 else 0
+
+
+def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events):
 
     gvb_merged = pd.merge(left=gvb, right=weather, left_on=['datetime', 'hour'], right_on=['date', 'hour'], how='left')
     gvb_merged.drop(columns=['date'], inplace=True)
@@ -793,21 +821,7 @@ def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events,
 
     gvb_merged['holiday'] = np.where((gvb_merged['datetime'].isin(holidays['Date'].values)), 1, 0)
     gvb_merged['vacation'] = np.where((gvb_merged['datetime'].isin(vacations['date'].values)), 1, 0)
-    if use_normalized_visitors:  # Use events as ratio of number of visitors to max attendance per day
-        def get_event_visitors_norm(dt):
-            visitors_normalized = events[events['Datum'] == dt]['visitors_normalized']
-            if len(visitors_normalized) == 0:
-                return 0  # No events found
-
-            visitors_normalized = visitors_normalized.dropna()
-            if len(visitors_normalized) == 0:
-                return 0.5  # Only nan values found
-
-            return visitors_normalized.sum()
-
-        gvb_merged['planned_event'] = gvb_merged['datetime'].apply(lambda dt: get_event_visitors_norm(dt))
-    else:  # Use events as boolean feature
-        gvb_merged['planned_event'] = np.where((gvb_merged['datetime'].isin(events['Datum'].values)), 1, 0)
+    gvb_merged['planned_event'] = gvb_merged.apply(lambda row: get_planned_event_value(row, events), axis=1)
 
     return gvb_merged
 
