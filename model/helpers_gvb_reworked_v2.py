@@ -18,9 +18,6 @@ from sklearn import metrics
 import requests
 import re
 
-from pyspark.sql.functions import *
-from pyspark.sql import SparkSession
-
 # from pyspark.sql import SparkSession
 # from pyspark.sql.functions import substring, length, col, expr
 # from pyspark.sql.types import *
@@ -42,8 +39,7 @@ config_include_ticketmaster_events = config['DEFAULT'].getboolean('IncludeTicket
 config_use_time_of_events = config['DEFAULT'].getboolean('UseTimeOfEvents')
 config_max_hours_before_event = config['DEFAULT'].getint('MaxHoursBeforeEvent')
 config_max_minutes_before_event = config['DEFAULT'].getint('MaxMinutesBeforeEvent')
-config_stringency = config['DEFAULT'].getboolean('UseStringency')
-config_measures = config['DEFAULT'].getboolean('UseMeasures')
+
 
 def get_minio_herkomst_2020 ():
 
@@ -156,29 +152,11 @@ def get_gvb_data(file_prefix):
             gvb_df = gvb_df.append(current_df)
 
     return gvb_df
-
-def get_gvb_data_json(df):
-    gvb_df = df
-    ## Year 2021 is hardcoded
-    files = glob('gvb/2021/**/**/**.json.gz',
-                recursive = True)
-
-    for file in files:
-        if not os.path.isfile(file) or not os.path.getsize(file) > 0:
-                continue
-        current_df = pd.read_json(file, compression="gzip", lines=True)
-        if gvb_df is None:
-            gvb_df = current_df
-        else:
-            gvb_df = gvb_df.append(current_df)
-    gvb_df = gvb_df.drop_duplicates().sort_values(by="Datum")
-    return gvb_df
-
 # Ramon Dop - 12 jan 2021
 def get_covid_measures():
     url = "https://www.ecdc.europa.eu/en/publications-data/download-data-response-measures-covid-19"
     response = requests.get(url)
-    # if this gives an error it is because the url has changed or the name of the file has changed on the website, please
+    # if this gives an error it is because the url has changed or the name of the file has changed on the website, please 
     # consult https://www.ecdc.europa.eu/en/publications-data/download-data-response-measures-covid-19
     if response.status_code == 200:
         csv_url =         re.findall(r'https:\/\/www\.ecdc\.europa\.eu\/sites\/default\/files\/documents\/response_graphs_data_\d{4}-\d{2}-\d{2}.csv', response.text)[0]
@@ -214,15 +192,19 @@ def get_df_covid_filtered(df_covid):
     df_covid_nl['datetime'] = pd.to_datetime(df_covid_nl['dateRep']).dt.strftime('%Y-%m-%d')
     df_covid_filtered = df_covid_nl[['datetime','cases', 'deaths']]
     #df_covid_filtered['datetime'] = pd.to_datetime(df_covid_filtered['datetime'])
+    return df_covid_filtered
 
 def get_covid_sprk_filtered(df_covid_filtered):
+    from pyspark.sql import SparkSession
     #Create PySpark SparkSession
     spark = SparkSession.builder \
         .master("local[1]") \
         .appName("SparkByExamples.com") \
         .getOrCreate()
 
-    covid_sprk=spark.createDataFrame(df_covid_filtered)
+    covid_sprk=spark.createDataFrame(df_covid_filtered) 
+
+    from pyspark.sql.functions import *
 
     # cache dataframes
     covid_sprk.cache().count()
@@ -237,7 +219,7 @@ def join_gvb_met_covid(gvb_dfs_merged, covid_sprk_filtered):
     joined_pd_list = []
     for x in (0,1):
         print(x)
-        gvb_sprk_=spark.createDataFrame(gvb_dfs_merged[x])
+        gvb_sprk_=spark.createDataFrame(gvb_dfs_merged[x]) 
         gvb_sprk_.cache().count()
         print(str(x)+': done gvb to spark')
         joined_df = gvb_sprk_.join(covid_sprk_filtered, on = 'datetime') #.select(cols)
@@ -252,7 +234,7 @@ def get_X_predict_dfs_merged(X_predict_dfs, df_covid_filtered):
     X_predict_dfs_merged = []
     X_predict_dfs_merged.append(pd.merge(X_predict_dfs[0], df_covid_filtered, on='datetime', how='inner'))
     X_predict_dfs_merged.append(pd.merge(X_predict_dfs[1], df_covid_filtered, on='datetime', how='inner'))
-
+    return X_predict_dfs_merged
 
 def read_csv_dir(dir):
 
@@ -699,11 +681,7 @@ def interpolate_missing_values(data_to_interpolate):
     random_state_value = 1 # Ensure reproducability
 
     # Train check-ins interpolator
-
-    checkins_interpolator_cols = ['hour', 'year', 'weekday', 'month', 'holiday', 'check-outs']
-
-    if config_stringency :
-        checkins_interpolator_cols.append('stringency')
+    checkins_interpolator_cols = ['hour', 'year', 'weekday', 'month', 'stringency', 'holiday', 'check-outs']
     checkins_interpolator_targets = ['check-ins']
 
     X_train = df.dropna()[checkins_interpolator_cols]
@@ -713,9 +691,7 @@ def interpolate_missing_values(data_to_interpolate):
     checkins_interpolator.fit(X_train, y_train)
 
     # Train check-outs interpolator
-    checkouts_interpolator_cols = ['hour', 'year', 'weekday', 'month', 'holiday', 'check-ins']
-    if config_stringency :
-        checkouts_interpolator_cols.append('stringency')
+    checkouts_interpolator_cols = ['hour', 'year', 'weekday', 'month', 'stringency', 'holiday', 'check-ins']
     checkouts_interpolator_targets = ['check-outs']
 
     X_train = df.dropna()[checkouts_interpolator_cols]
@@ -729,19 +705,13 @@ def interpolate_missing_values(data_to_interpolate):
 
     # Interpolate check-ins
     checkins_missing = df_to_interpolate[(df_to_interpolate['check-outs'].isna()==False) & (df_to_interpolate['check-ins'].isna()==True)].copy()
-    checkouts_missing = df_to_interpolate[(df_to_interpolate['check-ins'].isna()==False) & (df_to_interpolate['check-outs'].isna()==True)].copy()
-
-    if config_stringency :
-        checkins_missing['stringency'] = checkins_missing['stringency'].replace(np.nan, 0)
-        checkins_missing['check-ins'] = checkins_interpolator.predict(checkins_missing[['hour', 'year', 'weekday', 'month', 'stringency', 'holiday', 'check-outs']])
-        checkouts_missing['stringency'] = checkouts_missing['stringency'].replace(np.nan, 0)
-        checkouts_missing['check-outs'] = checkouts_interpolator.predict(checkouts_missing[['hour', 'year', 'weekday', 'month', 'stringency', 'holiday', 'check-ins']])
-
-    else :
-        checkins_missing['check-ins'] = checkins_interpolator.predict(checkins_missing[['hour', 'year', 'weekday', 'month', 'holiday', 'check-outs']])
-        checkouts_missing['check-outs'] = checkouts_interpolator.predict(checkouts_missing[['hour', 'year', 'weekday', 'month', 'holiday', 'check-ins']])
+    checkins_missing['stringency'] = checkins_missing['stringency'].replace(np.nan, 0)
+    checkins_missing['check-ins'] = checkins_interpolator.predict(checkins_missing[['hour', 'year', 'weekday', 'month', 'stringency', 'holiday', 'check-outs']])
 
     # Interpolate check-outs
+    checkouts_missing = df_to_interpolate[(df_to_interpolate['check-ins'].isna()==False) & (df_to_interpolate['check-outs'].isna()==True)].copy()
+    checkouts_missing['stringency'] = checkouts_missing['stringency'].replace(np.nan, 0)
+    checkouts_missing['check-outs'] = checkouts_interpolator.predict(checkouts_missing[['hour', 'year', 'weekday', 'month', 'stringency', 'holiday', 'check-ins']])
 
     # Insert interpolated values into main dataframe
     for index, row in checkins_missing.iterrows():
@@ -801,7 +771,7 @@ def get_train_val_test_split(df):
 
     return [train, validation, test]
 
-def get_future_df(features, gvb_data, covid_stringency, measures, holidays, vacations, weather, events):
+def get_future_df(features, gvb_data, covid_stringency, holidays, vacations, weather, events):
     """
     Create empty data frame for predictions of the target variable for the specfied prediction period
     """
@@ -850,8 +820,6 @@ def get_future_df(features, gvb_data, covid_stringency, measures, holidays, vaca
 
     # Set forecast for temperature, rain, and wind speed.
     df = pd.merge(left=df, right=weather.drop(columns=['datetime']), left_on=['datetime', 'hour'], right_on=['date', 'hour'], how='left')
-    df = pd.merge(df, measures, how='left', left_on='datetime', right_on='date')
-    df[measures.columns] = df[measures.columns].fillna(0)
     df.drop(columns=['date'], inplace=True)
 
     # Set recent crowd
@@ -860,7 +828,6 @@ def get_future_df(features, gvb_data, covid_stringency, measures, holidays, vaca
     if not 'datetime' in features:
         features.append('datetime') # Add datetime to make storing in database easier
 
-    #df.append(measures)
     return df[features]
 
 def train_random_forest_regressor(X_train, y_train, X_val, y_val, hyperparameters=None):
@@ -896,25 +863,21 @@ def get_planned_event_value(gvb_merged_row, events_df):
         return 1 if len(events_df[mask]) > 0 else 0
 
 
-def merge_gvb_with_datasources(gvb, weather, covid, measures, holidays, vacations, events, ):
+def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events):
 
     gvb_merged = pd.merge(left=gvb, right=weather, left_on=['datetime', 'hour'], right_on=['date', 'hour'], how='left')
     gvb_merged.drop(columns=['date'], inplace=True)
 
-    if config_stringency :
-        gvb_merged = pd.merge(gvb_merged, covid['stringency'], left_on='datetime', right_index=True, how='left')
-        gvb_merged['stringency'] = gvb_merged['stringency'].fillna(0)
+    gvb_merged = pd.merge(gvb_merged, covid['stringency'], left_on='datetime', right_index=True, how='left')
+    gvb_merged['stringency'] = gvb_merged['stringency'].fillna(0)
 
     gvb_merged['holiday'] = np.where((gvb_merged['datetime'].isin(holidays['Date'].values)), 1, 0)
     gvb_merged['vacation'] = np.where((gvb_merged['datetime'].isin(vacations['date'].values)), 1, 0)
     gvb_merged['planned_event'] = gvb_merged.apply(lambda row: get_planned_event_value(row, events), axis=1)
-
-    #check how many NAs at this point
-    if config_measures :
-        gvb_merged = pd.merge(gvb_merged, measures, how='left', left_on='datetime', right_on='date')
-        gvb_merged[measures.columns] = gvb_merged[measures.columns].fillna(0)
-
+    gvb_merged = pd.merge(gvb_merged, df_covid_filtered, on='datetime', how='inner')
+    
     return gvb_merged
+
 
 def predict(model, X_predict):
 
@@ -999,7 +962,7 @@ def preprocess_gvb_data(df):
     df_ok = df_ok.sort_values(by = 'datetime')
     df_ok = df_ok.reset_index(drop = True)
 
-    # drop
+    # drop 
     df_ok = df_ok.drop(['Datum', 'UurgroepOmschrijving (van aankomst)'], axis = 1)
 
     # rename columns
@@ -1071,7 +1034,7 @@ def add_geo_static_gvb_table(df_ok_static):
     gdf_ok_static2 = pd.merge(gdf_ok_static, gdf_ok_static_group,
                               on = 'arrival_stop_groupname', suffixes = ("", "_group"), how = 'left')
 
-    # Remove help columns, and change order of columns
+    # Remove help columns, and change order of columns  
     gdf_static = gdf_ok_static2[['arrival_stop_code', 'arrival_stop_name', 'type', 'geometry',
                                  'arrival_stop_groupname', 'n_codes_group', 'geometry_group',
                                  'include_druktebeeld', 'crowd_threshold_low', 'crowd_threshold_high']]
