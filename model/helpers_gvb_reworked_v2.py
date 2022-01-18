@@ -18,6 +18,9 @@ from sklearn import metrics
 import requests
 import re
 
+from pyspark.sql.functions import *
+from pyspark.sql import SparkSession
+
 # from pyspark.sql import SparkSession
 # from pyspark.sql.functions import substring, length, col, expr
 # from pyspark.sql.types import *
@@ -213,7 +216,6 @@ def get_df_covid_filtered(df_covid):
     #df_covid_filtered['datetime'] = pd.to_datetime(df_covid_filtered['datetime'])
 
 def get_covid_sprk_filtered(df_covid_filtered):
-    from pyspark.sql import SparkSession
     #Create PySpark SparkSession
     spark = SparkSession.builder \
         .master("local[1]") \
@@ -221,8 +223,6 @@ def get_covid_sprk_filtered(df_covid_filtered):
         .getOrCreate()
 
     covid_sprk=spark.createDataFrame(df_covid_filtered)
-
-    from pyspark.sql.functions import *
 
     # cache dataframes
     covid_sprk.cache().count()
