@@ -184,6 +184,57 @@ def get_covid_measures():
 
     return covid_df
 # End
+
+
+def get_df_covid_filtered(df_covid):
+    df_covid = pd.read_csv("data/data.csv")
+    df_covid_nl = df_covid[df_covid['geoId']=='NL']
+    df_covid_nl['datetime'] = pd.to_datetime(df_covid_nl['dateRep']).dt.strftime('%Y-%m-%d')
+    df_covid_filtered = df_covid_nl[['datetime','cases', 'deaths']]
+    #df_covid_filtered['datetime'] = pd.to_datetime(df_covid_filtered['datetime'])
+
+def get_covid_sprk_filtered(df_covid_filtered):
+    from pyspark.sql import SparkSession
+    #Create PySpark SparkSession
+    spark = SparkSession.builder \
+        .master("local[1]") \
+        .appName("SparkByExamples.com") \
+        .getOrCreate()
+
+    covid_sprk=spark.createDataFrame(df_covid_filtered) 
+
+    from pyspark.sql.functions import *
+
+    # cache dataframes
+    covid_sprk.cache().count()
+
+    # filter covid data
+    covid_sprk_filtered = covid_sprk.select('datetime', 'cases', 'deaths').dropDuplicates()
+    return covid_sprk_filtered
+
+def join_gvb_met_covid(gvb_dfs_merged, covid_sprk_filtered):
+   # gvb_sprk_list =[]
+   # joined_df = []
+    joined_pd_list = []
+    for x in (0,1):
+        print(x)
+        gvb_sprk_=spark.createDataFrame(gvb_dfs_merged[x]) 
+        gvb_sprk_.cache().count()
+        print(str(x)+': done gvb to spark')
+        joined_df = gvb_sprk_.join(covid_sprk_filtered, on = 'datetime') #.select(cols)
+        joined_pd = joined_df.toPandas()
+        joined_pd_list.append(joined_pd)
+        print(str(x)+': done append')
+
+    return joined_pd_list
+
+
+def get_X_predict_dfs_merged(X_predict_dfs, df_covid_filtered):
+    X_predict_dfs_merged = []
+    X_predict_dfs_merged.append(pd.merge(X_predict_dfs[0], df_covid_filtered, on='datetime', how='inner'))
+    X_predict_dfs_merged.append(pd.merge(X_predict_dfs[1], df_covid_filtered, on='datetime', how='inner'))
+
+
 def read_csv_dir(dir):
 
     read_csv_beta = pd.read_csv(dir,sep=';')
