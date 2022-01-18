@@ -863,7 +863,7 @@ def get_planned_event_value(gvb_merged_row, events_df):
         return 1 if len(events_df[mask]) > 0 else 0
 
 
-def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events):
+def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events, df_covid_filtered):
 
     gvb_merged = pd.merge(left=gvb, right=weather, left_on=['datetime', 'hour'], right_on=['date', 'hour'], how='left')
     gvb_merged.drop(columns=['date'], inplace=True)
@@ -874,7 +874,7 @@ def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events)
     gvb_merged['holiday'] = np.where((gvb_merged['datetime'].isin(holidays['Date'].values)), 1, 0)
     gvb_merged['vacation'] = np.where((gvb_merged['datetime'].isin(vacations['date'].values)), 1, 0)
     gvb_merged['planned_event'] = gvb_merged.apply(lambda row: get_planned_event_value(row, events), axis=1)
-    gvb_merged = pd.merge(gvb_merged, df_covid_filtered, on='datetime', how='inner')
+    gvb_merged = pd.merge(gvb_merged, df_covid_filtered, on='datetime', how='inner', right_index=True)
     
     return gvb_merged
 
