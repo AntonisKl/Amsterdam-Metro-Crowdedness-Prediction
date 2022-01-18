@@ -152,6 +152,24 @@ def get_gvb_data(file_prefix):
             gvb_df = gvb_df.append(current_df)
 
     return gvb_df
+
+def get_gvb_data_json(df):
+    gvb_df = df
+    ## Year 2021 is hardcoded
+    files = glob('gvb/2021/**/**/**.json.gz', 
+                recursive = True)
+
+    for file in files:
+        if not os.path.isfile(file) or not os.path.getsize(file) > 0:
+                continue
+        current_df = pd.read_json(file, compression="gzip", lines=True)
+        if gvb_df is None:
+            gvb_df = current_df
+        else:
+            gvb_df = gvb_df.append(current_df)
+    gvb_df = gvb_df.drop_duplicates().sort_values(by="Datum")
+    return gvb_df
+
 # Ramon Dop - 12 jan 2021
 def get_covid_measures():
     url = "https://www.ecdc.europa.eu/en/publications-data/download-data-response-measures-covid-19"
