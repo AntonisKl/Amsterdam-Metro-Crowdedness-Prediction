@@ -156,7 +156,7 @@ def get_gvb_data(file_prefix):
 def get_covid_measures():
     url = "https://www.ecdc.europa.eu/en/publications-data/download-data-response-measures-covid-19"
     response = requests.get(url)
-    # if this gives an error it is because the url has changed or the name of the file has changed on the website, please 
+    # if this gives an error it is because the url has changed or the name of the file has changed on the website, please
     # consult https://www.ecdc.europa.eu/en/publications-data/download-data-response-measures-covid-19
     if response.status_code == 200:
         csv_url =         re.findall(r'https:\/\/www\.ecdc\.europa\.eu\/sites\/default\/files\/documents\/response_graphs_data_\d{4}-\d{2}-\d{2}.csv', response.text)[0]
@@ -202,7 +202,7 @@ def get_covid_sprk_filtered(df_covid_filtered):
         .appName("SparkByExamples.com") \
         .getOrCreate()
 
-    covid_sprk=spark.createDataFrame(df_covid_filtered) 
+    covid_sprk=spark.createDataFrame(df_covid_filtered)
 
     from pyspark.sql.functions import *
 
@@ -219,7 +219,7 @@ def join_gvb_met_covid(gvb_dfs_merged, covid_sprk_filtered):
     joined_pd_list = []
     for x in (0,1):
         print(x)
-        gvb_sprk_=spark.createDataFrame(gvb_dfs_merged[x]) 
+        gvb_sprk_=spark.createDataFrame(gvb_dfs_merged[x])
         gvb_sprk_.cache().count()
         print(str(x)+': done gvb to spark')
         joined_df = gvb_sprk_.join(covid_sprk_filtered, on = 'datetime') #.select(cols)
@@ -875,7 +875,7 @@ def merge_gvb_with_datasources(gvb, weather, covid, holidays, vacations, events,
     gvb_merged['vacation'] = np.where((gvb_merged['datetime'].isin(vacations['date'].values)), 1, 0)
     gvb_merged['planned_event'] = gvb_merged.apply(lambda row: get_planned_event_value(row, events), axis=1)
     gvb_merged = pd.merge(gvb_merged, df_covid_filtered, on='datetime', how='inner', right_index=True)
-    
+
     return gvb_merged
 
 
@@ -962,7 +962,7 @@ def preprocess_gvb_data(df):
     df_ok = df_ok.sort_values(by = 'datetime')
     df_ok = df_ok.reset_index(drop = True)
 
-    # drop 
+    # drop
     df_ok = df_ok.drop(['Datum', 'UurgroepOmschrijving (van aankomst)'], axis = 1)
 
     # rename columns
@@ -1034,7 +1034,7 @@ def add_geo_static_gvb_table(df_ok_static):
     gdf_ok_static2 = pd.merge(gdf_ok_static, gdf_ok_static_group,
                               on = 'arrival_stop_groupname', suffixes = ("", "_group"), how = 'left')
 
-    # Remove help columns, and change order of columns  
+    # Remove help columns, and change order of columns
     gdf_static = gdf_ok_static2[['arrival_stop_code', 'arrival_stop_name', 'type', 'geometry',
                                  'arrival_stop_groupname', 'n_codes_group', 'geometry_group',
                                  'include_druktebeeld', 'crowd_threshold_low', 'crowd_threshold_high']]
