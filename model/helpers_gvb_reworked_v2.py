@@ -1,3 +1,4 @@
+import builtins
 import configparser
 import gzip
 import json
@@ -1288,9 +1289,9 @@ def log_models(models, stations):
         models_log_dict['Model'].append(model[0])
         for key, value in config['DEFAULT'].items():
             models_log_dict[key].append(value)
-        models_log_dict['R-squared'].append(round(model[1], 3))
-        models_log_dict['MAE'].append(round(model[2], 3))
-        models_log_dict['RMSE'].append(round(model[3], 3))
+        models_log_dict['R-squared'].append(builtins.round(model[1], 3))
+        models_log_dict['MAE'].append(builtins.round(model[2], 3))
+        models_log_dict['RMSE'].append(builtins.round(model[3], 3))
 
     models_log_df = pd.DataFrame(models_log_dict)
 
