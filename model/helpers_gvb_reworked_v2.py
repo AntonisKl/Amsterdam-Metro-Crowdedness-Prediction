@@ -1,3 +1,4 @@
+import builtins
 import configparser
 import gzip
 import json
@@ -1254,11 +1255,19 @@ def log_models(models, stations):
     for i, model in enumerate(models):
         models_log_dict['Station'].append(stations[i])
         models_log_dict['Model'].append(model[0])
-        for key, value in config['DEFAULT'].items():
-            models_log_dict[key].append(value)
-        models_log_dict['R-squared'].append(round(model[1], 3))
-        models_log_dict['MAE'].append(round(model[2], 3))
-        models_log_dict['RMSE'].append(round(model[3], 3))
+
+        models_log_dict['UseNormalizedVisitors'].append(config_use_normalized_visitors)
+        models_log_dict['IncludeInstagramEvents'].append(config_include_instagram_events)
+        models_log_dict['IncludeTicketmasterEvents'].append(config_include_ticketmaster_events)
+        models_log_dict['UseTimeOfEvents'].append(config_use_time_of_events)
+        models_log_dict['MaxHoursBeforeEvent'].append(int(config_max_hours_before_event))
+        models_log_dict['MaxMinutesBeforeEvent'].append(int(config_max_minutes_before_event))
+        models_log_dict['UseStringency'].append(config_stringency)
+        models_log_dict['UseMeasures'].append(config_measures)
+
+        models_log_dict['R-squared'].append(builtins.round(model[1], 3))
+        models_log_dict['MAE'].append(builtins.round(model[2], 3))
+        models_log_dict['RMSE'].append(builtins.round(model[3], 3))
 
     models_log_df = pd.DataFrame(models_log_dict)
 
