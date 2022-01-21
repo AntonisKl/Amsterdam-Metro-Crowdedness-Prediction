@@ -478,8 +478,8 @@ def get_events():
     events.drop_duplicates(subset=['Locatie', 'Datum', 'Start show'], inplace=True)
 
     # Add normalized number of visitors
-    max_num_visitors_per_day = events.groupby(['Datum'])['Aantal bezoekers'].sum().max()
-    events['visitors_normalized'] = events['Aantal bezoekers'] / max_num_visitors_per_day
+    # max_num_visitors_per_day = events.groupby(['Datum'])['Aantal bezoekers'].sum().max()
+    events['visitors_normalized'] = events['Aantal bezoekers'] / events['Aantal bezoekers'].max()
 
     return events
 
@@ -847,6 +847,7 @@ def train_random_forest_regressor(X_train, y_train, X_val, y_val, hyperparameter
 def get_planned_event_value(gvb_merged_row, events_df):
     mask = (events_df['Datum'] == gvb_merged_row['datetime'])
     if config_use_time_of_events:
+        # each event is affecting the last config_max_hours_before_event hours before it happens
         mask = (gvb_merged_row['datetime_full'] >= events_df['Datetime'] - timedelta(hours=config_max_hours_before_event, minutes=config_max_minutes_before_event)) & \
                (gvb_merged_row['datetime_full'] <= events_df['Datetime'])
 
@@ -859,7 +860,7 @@ def get_planned_event_value(gvb_merged_row, events_df):
         if len(visitors_normalized) == 0:
             return 0.5  # Only nan values found
 
-        return visitors_normalized.sum()
+        return visitors_normalized.max()  # number of events * max normalized visitors
     else:
         return 1 if len(events_df[mask]) > 0 else 0
 
