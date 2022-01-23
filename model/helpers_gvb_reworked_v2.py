@@ -45,6 +45,8 @@ config_max_hours_before_event = config['DEFAULT'].getint('MaxHoursBeforeEvent')
 config_max_minutes_before_event = config['DEFAULT'].getint('MaxMinutesBeforeEvent')
 config_stringency = config['DEFAULT'].getboolean('UseStringency')
 config_measures = config['DEFAULT'].getboolean('UseMeasures')
+config_use_covid_cases = config['DEFAULT'].getboolean('UseCOVIDCases')
+config_use_covid_deaths = config['DEFAULT'].getboolean('UseCOVIDDeaths')
 
 def get_minio_herkomst_2020 ():
 
@@ -204,12 +206,13 @@ def get_covid_measures():
 # End
 
 
-def get_df_covid_filtered(df_covid):
-    df_covid = pd.read_csv("data/data.csv")
+def get_df_covid_filtered():
+    df_covid = pd.read_csv('https://opendata.ecdc.europa.eu/covid19/nationalcasedeath_eueea_daily_ei/csv/data.csv')
     df_covid_nl = df_covid[df_covid['geoId']=='NL']
     df_covid_nl['datetime'] = pd.to_datetime(df_covid_nl['dateRep']).dt.strftime('%Y-%m-%d')
     df_covid_filtered = df_covid_nl[['datetime','cases', 'deaths']]
     #df_covid_filtered['datetime'] = pd.to_datetime(df_covid_filtered['datetime'])
+    return df_covid_filtered
 
 def get_covid_sprk_filtered(df_covid_filtered):
     #Create PySpark SparkSession
@@ -797,7 +800,7 @@ def get_train_val_test_split(df):
 
     return [train, validation, test]
 
-def get_future_df(features, gvb_data, covid_stringency, measures, holidays, vacations, weather, events):
+def get_future_df(features, gvb_data, covid_stringency, measures, covid_cases_deaths, holidays, vacations, weather, events):
     """
     Create empty data frame for predictions of the target variable for the specfied prediction period
     """
@@ -846,9 +849,17 @@ def get_future_df(features, gvb_data, covid_stringency, measures, holidays, vaca
 
     # Set forecast for temperature, rain, and wind speed.
     df = pd.merge(left=df, right=weather.drop(columns=['datetime']), left_on=['datetime', 'hour'], right_on=['date', 'hour'], how='left')
-    df = pd.merge(df, measures, how='left', left_on='datetime', right_on='date')
-    df[measures.columns] = df[measures.columns].fillna(0)
-    df.drop(columns=['date'], inplace=True)
+
+    datetime_end_of_today = datetime.now().replace(hour=23, minute=59)
+    datetime_start_of_today = datetime.now().replace(hour=0, minute=0)
+
+    if config_measures:
+        df = pd.merge(df, measures, how='left', left_on='datetime', right_on='date')
+        df[measures.columns] = df[measures.columns].fillna(0)
+        df.drop(columns=['date'], inplace=True)
+
+        df[df['datetime'] > datetime_end_of_today][measures.columns].fillna(
+            df[df['datetime'] == datetime_start_of_today][measures.columns])
 
     # Set recent crowd
     df[['check-ins_week_ago', 'check-outs_week_ago']] = df.apply(lambda x: get_crowd_last_week(gvb_data, x), axis=1, result_type="expand")
@@ -856,7 +867,13 @@ def get_future_df(features, gvb_data, covid_stringency, measures, holidays, vaca
     if not 'datetime' in features:
         features.append('datetime') # Add datetime to make storing in database easier
 
-    #df.append(measures)
+    if config_use_covid_cases or config_use_covid_deaths:
+        df = pd.merge(df, covid_cases_deaths, on='datetime', how='left')
+        if config_use_covid_cases:
+            df[df['datetime'] > datetime_end_of_today]['cases'].fillna(df[df['datetime'] == datetime_start_of_today]['cases'])
+        if config_use_covid_deaths:
+            df[df['datetime'] > datetime_end_of_today]['deaths'].fillna(df[df['datetime'] == datetime_start_of_today]['deaths'])
+
     return df[features]
 
 def train_random_forest_regressor(X_train, y_train, X_val, y_val, hyperparameters=None):
@@ -893,12 +910,12 @@ def get_planned_event_value(gvb_merged_row, events_df):
         return 1 if len(events_df[mask]) > 0 else 0
 
 
-def merge_gvb_with_datasources(gvb, weather, covid, measures, holidays, vacations, events, ):
+def merge_gvb_with_datasources(gvb, weather, covid, measures, holidays, vacations, events, df_covid_filtered):
 
     gvb_merged = pd.merge(left=gvb, right=weather, left_on=['datetime', 'hour'], right_on=['date', 'hour'], how='left')
     gvb_merged.drop(columns=['date'], inplace=True)
 
-    if config_stringency :
+    if config_stringency:
         gvb_merged = pd.merge(gvb_merged, covid['stringency'], left_on='datetime', right_index=True, how='left')
         gvb_merged['stringency'] = gvb_merged['stringency'].fillna(0)
 
@@ -907,9 +924,26 @@ def merge_gvb_with_datasources(gvb, weather, covid, measures, holidays, vacation
     gvb_merged['planned_event'] = gvb_merged.apply(lambda row: get_planned_event_value(row, events), axis=1)
 
     #check how many NAs at this point
-    if config_measures :
+    if config_measures:
+        # Add COVID measures
         gvb_merged = pd.merge(gvb_merged, measures, how='left', left_on='datetime', right_on='date')
         gvb_merged[measures.columns] = gvb_merged[measures.columns].fillna(0)
+
+    if config_use_covid_cases:
+        # Add COVID cases
+        df_covid_filtered['cases'] = df_covid_filtered['cases'].fillna(0)
+        df_covid_filtered['cases'] = df_covid_filtered['cases'].astype('float64')
+        df_covid_filtered['datetime'] = pd.to_datetime(df_covid_filtered['datetime'])
+        gvb_merged = pd.merge(gvb_merged, df_covid_filtered.drop(columns=['deaths']), on='datetime', how='left')
+        gvb_merged['cases'] = gvb_merged['cases'].fillna(0)
+
+    if config_use_covid_deaths:
+        # Add COVID deaths
+        df_covid_filtered['deaths'] = df_covid_filtered['deaths'].fillna(0)
+        df_covid_filtered['deaths'] = df_covid_filtered['deaths'].astype('float64')
+        df_covid_filtered['datetime'] = pd.to_datetime(df_covid_filtered['datetime'])
+        gvb_merged = pd.merge(gvb_merged, df_covid_filtered.drop(columns=['cases']), on='datetime', how='left')
+        gvb_merged['deaths'] = gvb_merged['deaths'].fillna(0)
 
     return gvb_merged
 
@@ -1297,6 +1331,8 @@ def log_models(models, stations):
         models_log_dict['MaxMinutesBeforeEvent'].append(int(config_max_minutes_before_event))
         models_log_dict['UseStringency'].append(config_stringency)
         models_log_dict['UseMeasures'].append(config_measures)
+        models_log_dict['UseCOVIDCases'].append(config_use_covid_cases)
+        models_log_dict['UseCOVIDDeaths'].append(config_use_covid_deaths)
 
         models_log_dict['R-squared'].append(builtins.round(model[1], 3))
         models_log_dict['MAE'].append(builtins.round(model[2], 3))
