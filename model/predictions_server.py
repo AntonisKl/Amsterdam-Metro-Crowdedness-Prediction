@@ -80,10 +80,10 @@ def train_and_predict():
         h.config_max_minutes_before_event = config_max_minutes_before_event
 
     if config_stringency:
-        h.config_stringency = config_stringency
+        h.config_use_covid_stringency = config_stringency
 
     if config_measures:
-        h.config_measures = config_measures
+        h.config_use_covid_measures = config_measures
 
     # # features = ['year', 'month', 'weekday', 'hour', 'holiday', 'vacation', 'planned_event', 'temperature', 'wind_speed', 'precipitation_h','global_radiation'] + list(covid_measures.columns.values)
     # features = ['year', 'month', 'weekday', 'hour', 'holiday', 'vacation', 'planned_event', 'temperature', 'wind_speed',
