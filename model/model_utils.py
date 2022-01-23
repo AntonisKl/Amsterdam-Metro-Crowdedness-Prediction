@@ -29,17 +29,18 @@ def read_data():
     knmi_preds = h.get_knmi_data('knmi/knmi/**/**/**/*.json.gz')
 
     covid_measures = h.get_covid_measures()
+    df_covid_filtered = h.get_df_covid_filtered()
 
     covid_df_raw = pd.DataFrame(requests.get(url=covid_url).json()['data'])
     holidays_data_raw = Netherlands().holidays(2019) + Netherlands().holidays(2020) + Netherlands().holidays(2021)
     vacations_df = h.get_vacations()
     events = h.get_events()
 
-    return herkomst_2020, bestemming_2020, herkomst_2021, bestemming_2021, knmi_obs, knmi_preds, covid_measures, covid_df_raw, holidays_data_raw, vacations_df, events
+    return herkomst_2020, bestemming_2020, herkomst_2021, bestemming_2021, knmi_obs, knmi_preds, covid_measures, df_covid_filtered, covid_df_raw, holidays_data_raw, vacations_df, events
 
 
 def preprocess_data(herkomst_2020, bestemming_2020, herkomst_2021, bestemming_2021, knmi_obs, knmi_preds,
-                    covid_measures, covid_df_raw, holidays_data_raw, vacations_df, events):
+                    covid_measures, df_covid_filtered, covid_df_raw, holidays_data_raw, vacations_df, events):
     print('Start pre-processing data')
 
     herkomst = pd.concat([herkomst_2020, herkomst_2021])
@@ -77,7 +78,7 @@ def preprocess_data(herkomst_2020, bestemming_2020, herkomst_2021, bestemming_20
     for df in gvb_dfs:
         gvb_dfs_merged.append(
             h.merge_gvb_with_datasources(df, knmi_historical, covid_df, covid_measures, holiday_df, vacations_df,
-                                         events))
+                                         events, df_covid_filtered))
 
     return gvb_dfs_merged, covid_df, holiday_df, knmi_forecast
 
@@ -102,7 +103,7 @@ def clean_data(gvb_dfs_merged):
     return gvb_dfs_final
 
 
-def split_data_for_modelling(gvb_dfs_final, covid_df, covid_measures, holiday_df, vacations_df, knmi_forecast, events,
+def split_data_for_modelling(gvb_dfs_final, covid_df, covid_measures, df_covid_filtered, holiday_df, vacations_df, knmi_forecast, events,
                              features):
     targets = ['check-ins', 'check-outs']
 
@@ -138,7 +139,7 @@ def split_data_for_modelling(gvb_dfs_final, covid_df, covid_measures, holiday_df
 
     for df in gvb_dfs_final:
         X_predict_dfs.append(
-            h.get_future_df(features, df, covid_df.tail(1)['stringency'][0], covid_measures, holiday_df, vacations_df,
+            h.get_future_df(features, df, covid_df.tail(1)['stringency'][0], covid_measures, df_covid_filtered, holiday_df, vacations_df,
                             knmi_forecast, events))
 
     return data_splits, X_train_splits, y_train_splits, X_validation_splits, y_validation_splits, X_test_splits, y_test_splits, X_predict_dfs
