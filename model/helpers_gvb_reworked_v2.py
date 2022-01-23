@@ -43,8 +43,8 @@ config_include_ticketmaster_events = config['DEFAULT'].getboolean('IncludeTicket
 config_use_time_of_events = config['DEFAULT'].getboolean('UseTimeOfEvents')
 config_max_hours_before_event = config['DEFAULT'].getint('MaxHoursBeforeEvent')
 config_max_minutes_before_event = config['DEFAULT'].getint('MaxMinutesBeforeEvent')
-config_stringency = config['DEFAULT'].getboolean('UseStringency')
-config_measures = config['DEFAULT'].getboolean('UseMeasures')
+config_use_covid_stringency = config['DEFAULT'].getboolean('UseCOVIDStringency')
+config_use_covid_measures = config['DEFAULT'].getboolean('UseCOVIDMeasures')
 config_use_covid_cases = config['DEFAULT'].getboolean('UseCOVIDCases')
 config_use_covid_deaths = config['DEFAULT'].getboolean('UseCOVIDDeaths')
 
@@ -701,7 +701,7 @@ def interpolate_missing_values(data_to_interpolate):
 
     checkins_interpolator_cols = ['hour', 'year', 'weekday', 'month', 'holiday', 'check-outs']
 
-    if config_stringency :
+    if config_use_covid_stringency :
         checkins_interpolator_cols.append('stringency')
     checkins_interpolator_targets = ['check-ins']
 
@@ -713,7 +713,7 @@ def interpolate_missing_values(data_to_interpolate):
 
     # Train check-outs interpolator
     checkouts_interpolator_cols = ['hour', 'year', 'weekday', 'month', 'holiday', 'check-ins']
-    if config_stringency :
+    if config_use_covid_stringency :
         checkouts_interpolator_cols.append('stringency')
     checkouts_interpolator_targets = ['check-outs']
 
@@ -730,7 +730,7 @@ def interpolate_missing_values(data_to_interpolate):
     checkins_missing = df_to_interpolate[(df_to_interpolate['check-outs'].isna()==False) & (df_to_interpolate['check-ins'].isna()==True)].copy()
     checkouts_missing = df_to_interpolate[(df_to_interpolate['check-ins'].isna()==False) & (df_to_interpolate['check-outs'].isna()==True)].copy()
 
-    if config_stringency :
+    if config_use_covid_stringency :
         checkins_missing['stringency'] = checkins_missing['stringency'].replace(np.nan, 0)
         checkins_missing['check-ins'] = checkins_interpolator.predict(checkins_missing[['hour', 'year', 'weekday', 'month', 'stringency', 'holiday', 'check-outs']])
         checkouts_missing['stringency'] = checkouts_missing['stringency'].replace(np.nan, 0)
@@ -853,7 +853,7 @@ def get_future_df(features, gvb_data, covid_stringency, measures, covid_cases_de
     datetime_end_of_today = datetime.now().replace(hour=23, minute=59)
     datetime_start_of_today = datetime.now().replace(hour=0, minute=0)
 
-    if config_measures:
+    if config_use_covid_measures:
         df = pd.merge(df, measures, how='left', left_on='datetime', right_on='date')
         df[measures.columns] = df[measures.columns].fillna(0)
         df.drop(columns=['date'], inplace=True)
@@ -915,7 +915,7 @@ def merge_gvb_with_datasources(gvb, weather, covid, measures, holidays, vacation
     gvb_merged = pd.merge(left=gvb, right=weather, left_on=['datetime', 'hour'], right_on=['date', 'hour'], how='left')
     gvb_merged.drop(columns=['date'], inplace=True)
 
-    if config_stringency:
+    if config_use_covid_stringency:
         gvb_merged = pd.merge(gvb_merged, covid['stringency'], left_on='datetime', right_index=True, how='left')
         gvb_merged['stringency'] = gvb_merged['stringency'].fillna(0)
 
@@ -924,7 +924,7 @@ def merge_gvb_with_datasources(gvb, weather, covid, measures, holidays, vacation
     gvb_merged['planned_event'] = gvb_merged.apply(lambda row: get_planned_event_value(row, events), axis=1)
 
     #check how many NAs at this point
-    if config_measures:
+    if config_use_covid_measures:
         # Add COVID measures
         gvb_merged = pd.merge(gvb_merged, measures, how='left', left_on='datetime', right_on='date')
         gvb_merged[measures.columns] = gvb_merged[measures.columns].fillna(0)
@@ -1329,8 +1329,8 @@ def log_models(models, stations):
         models_log_dict['UseTimeOfEvents'].append(config_use_time_of_events)
         models_log_dict['MaxHoursBeforeEvent'].append(int(config_max_hours_before_event))
         models_log_dict['MaxMinutesBeforeEvent'].append(int(config_max_minutes_before_event))
-        models_log_dict['UseStringency'].append(config_stringency)
-        models_log_dict['UseMeasures'].append(config_measures)
+        models_log_dict['UseCOVIDStringency'].append(config_use_covid_stringency)
+        models_log_dict['UseCOVIDMeasures'].append(config_use_covid_measures)
         models_log_dict['UseCOVIDCases'].append(config_use_covid_cases)
         models_log_dict['UseCOVIDDeaths'].append(config_use_covid_deaths)
 
