@@ -19,9 +19,6 @@ from sklearn import metrics
 import requests
 import re
 
-from pyspark.sql.functions import *
-from pyspark.sql import SparkSession
-
 # from pyspark.sql import SparkSession
 # from pyspark.sql.functions import substring, length, col, expr
 # from pyspark.sql.types import *
@@ -159,19 +156,6 @@ def get_gvb_data(file_prefix):
             gvb_df = gvb_df.append(current_df)
 
     return gvb_df
-
-def get_gvb_data_json(gvb_df):
-    files = glob('gvb/2021/**/**/*.json.gz')
-    dfs = []
-    for file in files:
-        if not os.path.isfile(file) or not os.path.getsize(file) > 0:
-            continue
-        dfs.append(pd.read_json(file, compression="gzip", lines=True))
-
-    gvb_json_df = pd.concat(dfs)
-
-    return gvb_df.append(gvb_json_df)
-
 # Ramon Dop - 12 jan 2021
 def get_covid_measures():
     url = "https://www.ecdc.europa.eu/en/publications-data/download-data-response-measures-covid-19"
@@ -215,6 +199,7 @@ def get_df_covid_filtered():
     return df_covid_filtered
 
 def get_covid_sprk_filtered(df_covid_filtered):
+    from pyspark.sql import SparkSession
     #Create PySpark SparkSession
     spark = SparkSession.builder \
         .master("local[1]") \
@@ -222,6 +207,8 @@ def get_covid_sprk_filtered(df_covid_filtered):
         .getOrCreate()
 
     covid_sprk=spark.createDataFrame(df_covid_filtered)
+
+    from pyspark.sql.functions import *
 
     # cache dataframes
     covid_sprk.cache().count()
@@ -251,7 +238,7 @@ def get_X_predict_dfs_merged(X_predict_dfs, df_covid_filtered):
     X_predict_dfs_merged = []
     X_predict_dfs_merged.append(pd.merge(X_predict_dfs[0], df_covid_filtered, on='datetime', how='inner'))
     X_predict_dfs_merged.append(pd.merge(X_predict_dfs[1], df_covid_filtered, on='datetime', how='inner'))
-
+    return X_predict_dfs_merged
 
 def read_csv_dir(dir):
 
@@ -741,6 +728,9 @@ def interpolate_missing_values(data_to_interpolate):
         checkouts_missing['check-outs'] = checkouts_interpolator.predict(checkouts_missing[['hour', 'year', 'weekday', 'month', 'holiday', 'check-ins']])
 
     # Interpolate check-outs
+    checkouts_missing = df_to_interpolate[(df_to_interpolate['check-ins'].isna()==False) & (df_to_interpolate['check-outs'].isna()==True)].copy()
+    checkouts_missing['stringency'] = checkouts_missing['stringency'].replace(np.nan, 0)
+    checkouts_missing['check-outs'] = checkouts_interpolator.predict(checkouts_missing[['hour', 'year', 'weekday', 'month', 'stringency', 'holiday', 'check-ins']])
 
     # Insert interpolated values into main dataframe
     for index, row in checkins_missing.iterrows():
@@ -946,6 +936,7 @@ def merge_gvb_with_datasources(gvb, weather, covid, measures, holidays, vacation
         gvb_merged['deaths'] = gvb_merged['deaths'].fillna(0)
 
     return gvb_merged
+
 
 def predict(model, X_predict):
 
