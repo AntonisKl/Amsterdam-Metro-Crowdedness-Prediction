@@ -173,7 +173,7 @@ def get_events():
 
     if config_use_time_of_events:
         events.dropna(subset=['Start show'], inplace=True)
-        events['Start show'] = events['Start show'].astype(str).apply(lambda time: time[:5])
+        events['Start show'] = events['Start show'].astype(str).apply(lambda time: time.replace('1899-12-30 ', '')[:5])
 
     events['Datum'] = events['Datum'].astype('datetime64[ns]')
     if config_use_time_of_events:
