@@ -162,12 +162,11 @@ def model(data_splits, X_train_splits, y_train_splits, X_validation_splits, y_va
     # Specify hyperparameters, these could be station-specific. For now, default hyperparameter settings are being used.
     centraal_station_hyperparameters = None
     station_zuid_hyperparameters = None
-    # station_bijlmer_arena_hyperparameters = 2
+    station_bijlmer_arena_hyperparameters = None
 
     hyperparameters = [centraal_station_hyperparameters,
-                       station_zuid_hyperparameters
-                       #                  ,station_bijlmer_arena_hyperparameters
-                       ]
+                       station_zuid_hyperparameters,
+                       station_bijlmer_arena_hyperparameters]
 
     test_models = []
 
