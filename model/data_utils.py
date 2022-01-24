@@ -619,16 +619,19 @@ def get_future_df(features, gvb_data, covid_stringency, measures, covid_cases_de
     df = pd.merge(left=df, right=weather.drop(columns=['datetime']), left_on=['datetime', 'hour'],
                   right_on=['date', 'hour'], how='left')
 
-    datetime_end_of_today = datetime.now().replace(hour=23, minute=59)
-    datetime_start_of_today = datetime.now().replace(hour=0, minute=0)
+    datetime_start_of_today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
     if config_use_covid_measures:
         df = pd.merge(df, measures, how='left', left_on='datetime', right_on='date')
         df[measures.columns] = df[measures.columns].fillna(0)
         df.drop(columns=['date'], inplace=True)
 
-        df[df['datetime'] > datetime_end_of_today][measures.columns].fillna(
-            df[df['datetime'] == datetime_start_of_today][measures.columns])
+        todays_measures = [df[df['datetime'] == datetime_start_of_today][measures_column].values[0] for measures_column
+                           in measures.columns]
+
+        for i, measures_column in enumerate(measures.columns):
+            df[measures_column].fillna(
+                todays_measures[i], inplace=True)
 
     # Set recent crowd
     df[['check-ins_week_ago', 'check-outs_week_ago']] = df.apply(lambda x: get_crowd_last_week(gvb_data, x), axis=1,
@@ -639,12 +642,13 @@ def get_future_df(features, gvb_data, covid_stringency, measures, covid_cases_de
 
     if config_use_covid_cases or config_use_covid_deaths:
         df = pd.merge(df, covid_cases_deaths, on='datetime', how='left')
+        display(df[df['datetime'] == datetime_start_of_today]['cases'])
         if config_use_covid_cases:
-            df[df['datetime'] > datetime_end_of_today]['cases'].fillna(
-                df[df['datetime'] == datetime_start_of_today]['cases'])
+            df['cases'].fillna(
+                df[df['datetime'] == datetime_start_of_today]['cases'].values[0], inplace=True)
         if config_use_covid_deaths:
-            df[df['datetime'] > datetime_end_of_today]['deaths'].fillna(
-                df[df['datetime'] == datetime_start_of_today]['deaths'])
+            df['deaths'].fillna(
+                df[df['datetime'] == datetime_start_of_today]['deaths'].values[0], inplace=True)
 
     return df[features]
 
