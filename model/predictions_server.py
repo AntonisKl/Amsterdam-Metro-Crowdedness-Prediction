@@ -35,7 +35,7 @@ def preprocess():
 
 class CustomServer(Server):
     def __call__(self, app, *args, **kwargs):
-        # preprocess()
+        preprocess()
         return Server.__call__(self, app, *args, **kwargs)
 
 
