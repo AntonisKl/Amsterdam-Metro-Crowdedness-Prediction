@@ -94,13 +94,13 @@ def get_covid_measures():
 # End
 
 
-def get_df_covid_filtered():
+def get_covid_cases_deaths():
     df_covid = pd.read_csv('https://opendata.ecdc.europa.eu/covid19/nationalcasedeath_eueea_daily_ei/csv/data.csv')
     df_covid_nl = df_covid[df_covid['geoId'] == 'NL']
     df_covid_nl['datetime'] = pd.to_datetime(df_covid_nl['dateRep']).dt.strftime('%Y-%m-%d')
-    df_covid_filtered = df_covid_nl[['datetime', 'cases', 'deaths']]
-    # df_covid_filtered['datetime'] = pd.to_datetime(df_covid_filtered['datetime'])
-    return df_covid_filtered
+    covid_cases_deaths_df = df_covid_nl[['datetime', 'cases', 'deaths']]
+    # covid_cases_deaths_df['datetime'] = pd.to_datetime(covid_cases_deaths_df['datetime'])
+    return covid_cases_deaths_df
 
 
 def get_knmi_data(path):
@@ -684,7 +684,7 @@ def get_planned_event_value(gvb_merged_row, events_df):
         return 1 if len(events_df[mask]) > 0 else 0
 
 
-def merge_gvb_with_datasources(gvb, weather, covid, measures, holidays, vacations, events, df_covid_filtered):
+def merge_gvb_with_datasources(gvb, weather, covid, measures, holidays, vacations, events, covid_cases_deaths_df):
     gvb_merged = pd.merge(left=gvb, right=weather, left_on=['datetime', 'hour'], right_on=['date', 'hour'], how='left')
     gvb_merged.drop(columns=['date'], inplace=True)
 
@@ -704,18 +704,18 @@ def merge_gvb_with_datasources(gvb, weather, covid, measures, holidays, vacation
 
     if config_use_covid_cases:
         # Add COVID cases
-        df_covid_filtered['cases'] = df_covid_filtered['cases'].fillna(0)
-        df_covid_filtered['cases'] = df_covid_filtered['cases'].astype('float64')
-        df_covid_filtered['datetime'] = pd.to_datetime(df_covid_filtered['datetime'])
-        gvb_merged = pd.merge(gvb_merged, df_covid_filtered.drop(columns=['deaths']), on='datetime', how='left')
+        covid_cases_deaths_df['cases'] = covid_cases_deaths_df['cases'].fillna(0)
+        covid_cases_deaths_df['cases'] = covid_cases_deaths_df['cases'].astype('float64')
+        covid_cases_deaths_df['datetime'] = pd.to_datetime(covid_cases_deaths_df['datetime'])
+        gvb_merged = pd.merge(gvb_merged, covid_cases_deaths_df.drop(columns=['deaths']), on='datetime', how='left')
         gvb_merged['cases'] = gvb_merged['cases'].fillna(0)
 
     if config_use_covid_deaths:
         # Add COVID deaths
-        df_covid_filtered['deaths'] = df_covid_filtered['deaths'].fillna(0)
-        df_covid_filtered['deaths'] = df_covid_filtered['deaths'].astype('float64')
-        df_covid_filtered['datetime'] = pd.to_datetime(df_covid_filtered['datetime'])
-        gvb_merged = pd.merge(gvb_merged, df_covid_filtered.drop(columns=['cases']), on='datetime', how='left')
+        covid_cases_deaths_df['deaths'] = covid_cases_deaths_df['deaths'].fillna(0)
+        covid_cases_deaths_df['deaths'] = covid_cases_deaths_df['deaths'].astype('float64')
+        covid_cases_deaths_df['datetime'] = pd.to_datetime(covid_cases_deaths_df['datetime'])
+        gvb_merged = pd.merge(gvb_merged, covid_cases_deaths_df.drop(columns=['cases']), on='datetime', how='left')
         gvb_merged['deaths'] = gvb_merged['deaths'].fillna(0)
 
     return gvb_merged

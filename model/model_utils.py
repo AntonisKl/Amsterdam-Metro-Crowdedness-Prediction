@@ -2,7 +2,7 @@ import os
 import warnings
 from datetime import date
 
-import helpers_gvb_reworked_v2 as h
+import data_utils
 import pandas as pd
 import requests
 from workalendar.europe import Netherlands
@@ -17,30 +17,30 @@ def read_data():
 
     print('Start loading raw data')
 
-    herkomst_2020 = h.get_gvb_data('Datalab_Reis_Herkomst_Uur_2020')
-    bestemming_2020 = h.get_gvb_data('Datalab_Reis_Bestemming_Uur_2020')
+    herkomst_2020 = data_utils.get_gvb_data('Datalab_Reis_Herkomst_Uur_2020')
+    bestemming_2020 = data_utils.get_gvb_data('Datalab_Reis_Bestemming_Uur_2020')
 
-    herkomst_2021 = h.get_gvb_data('Datalab_Reis_Herkomst_Uur_2021')
-    bestemming_2021 = h.get_gvb_data('Datalab_Reis_Bestemming_Uur_2021')
+    herkomst_2021 = data_utils.get_gvb_data('Datalab_Reis_Herkomst_Uur_2021')
+    bestemming_2021 = data_utils.get_gvb_data('Datalab_Reis_Bestemming_Uur_2021')
 
-    bestemming_2021 = h.get_gvb_data_json(bestemming_2021)
+    bestemming_2021 = data_utils.get_gvb_data_json(bestemming_2021)
 
-    knmi_obs = h.get_knmi_data('knmi/knmi-observations/2021/**/**/*')
-    knmi_preds = h.get_knmi_data('knmi/knmi/**/**/**/*.json.gz')
+    knmi_obs = data_utils.get_knmi_data('knmi/knmi-observations/2021/**/**/*')
+    knmi_preds = data_utils.get_knmi_data('knmi/knmi/**/**/**/*.json.gz')
 
-    covid_measures = h.get_covid_measures()
-    df_covid_filtered = h.get_df_covid_filtered()
+    covid_measures_df = data_utils.get_covid_measures()
+    covid_cases_deaths_df = data_utils.get_covid_cases_deaths()
 
     covid_df_raw = pd.DataFrame(requests.get(url=covid_url).json()['data'])
     holidays_data_raw = Netherlands().holidays(2019) + Netherlands().holidays(2020) + Netherlands().holidays(2021)
-    vacations_df = h.get_vacations()
-    events = h.get_events()
+    vacations_df = data_utils.get_vacations()
+    events = data_utils.get_events()
 
-    return herkomst_2020, bestemming_2020, herkomst_2021, bestemming_2021, knmi_obs, knmi_preds, covid_measures, df_covid_filtered, covid_df_raw, holidays_data_raw, vacations_df, events
+    return herkomst_2020, bestemming_2020, herkomst_2021, bestemming_2021, knmi_obs, knmi_preds, covid_measures_df, covid_cases_deaths_df, covid_df_raw, holidays_data_raw, vacations_df, events
 
 
 def preprocess_data(herkomst_2020, bestemming_2020, herkomst_2021, bestemming_2021, knmi_obs, knmi_preds,
-                    covid_measures, df_covid_filtered, covid_df_raw, holidays_data_raw, vacations_df, events):
+                    covid_measures_df, covid_cases_deaths_df, covid_df_raw, holidays_data_raw, vacations_df, events):
     print('Start pre-processing data')
 
     herkomst = pd.concat([herkomst_2020, herkomst_2021])
@@ -62,23 +62,23 @@ def preprocess_data(herkomst_2020, bestemming_2020, herkomst_2021, bestemming_20
         herkomst.groupby(['Datum', 'UurgroepOmschrijving (van vertrek)', 'VertrekHalteNaam'], as_index=False)[
             'AantalReizen'].sum()
 
-    bestemming_herkomst = h.merge_bestemming_herkomst(bestemming_grouped, herkomst_grouped)
+    bestemming_herkomst = data_utils.merge_bestemming_herkomst(bestemming_grouped, herkomst_grouped)
 
     gvb_dfs = []
 
     for station in stations:
-        gvb_dfs.append(h.preprocess_gvb_data_for_modelling(bestemming_herkomst, station))
+        gvb_dfs.append(data_utils.preprocess_gvb_data_for_modelling(bestemming_herkomst, station))
 
-    knmi_historical = h.preprocess_knmi_data_hour(knmi_obs)
-    knmi_forecast = h.preprocess_metpre_data(knmi_preds)
-    covid_df = h.preprocess_covid_data(covid_df_raw)
-    holiday_df = h.preprocess_holiday_data(holidays_data_raw)
+    knmi_historical = data_utils.preprocess_knmi_data_hour(knmi_obs)
+    knmi_forecast = data_utils.preprocess_metpre_data(knmi_preds)
+    covid_df = data_utils.preprocess_covid_data(covid_df_raw)
+    holiday_df = data_utils.preprocess_holiday_data(holidays_data_raw)
 
     gvb_dfs_merged = []
     for df in gvb_dfs:
         gvb_dfs_merged.append(
-            h.merge_gvb_with_datasources(df, knmi_historical, covid_df, covid_measures, holiday_df, vacations_df,
-                                         events, df_covid_filtered))
+            data_utils.merge_gvb_with_datasources(df, knmi_historical, covid_df, covid_measures_df, holiday_df, vacations_df,
+                                         events, covid_cases_deaths_df))
 
     return gvb_dfs_merged, covid_df, holiday_df, knmi_forecast
 
@@ -89,13 +89,13 @@ def clean_data(gvb_dfs_merged):
     # Interpolate missing data
     gvb_dfs_interpolated = []
     for df in gvb_dfs_merged:
-        gvb_dfs_interpolated.append(h.interpolate_missing_values(df))
+        gvb_dfs_interpolated.append(data_utils.interpolate_missing_values(df))
 
     gvb_dfs_final = []
     for df in gvb_dfs_interpolated:
         df['check-ins'] = df['check-ins'].astype(int)
         df['check-outs'] = df['check-outs'].astype(int)
-        df[['check-ins_week_ago', 'check-outs_week_ago']] = df.apply(lambda x: h.get_crowd_last_week(df, x), axis=1,
+        df[['check-ins_week_ago', 'check-outs_week_ago']] = df.apply(lambda x: data_utils.get_crowd_last_week(df, x), axis=1,
                                                                      result_type="expand")
 
         gvb_dfs_final.append(df)
@@ -103,7 +103,7 @@ def clean_data(gvb_dfs_merged):
     return gvb_dfs_final
 
 
-def split_data_for_modelling(gvb_dfs_final, covid_df, covid_measures, df_covid_filtered, holiday_df, vacations_df, knmi_forecast, events,
+def split_data_for_modelling(gvb_dfs_final, covid_df, covid_measures_df, covid_cases_deaths_df, holiday_df, vacations_df, knmi_forecast, events,
                              features):
     targets = ['check-ins', 'check-outs']
 
@@ -112,7 +112,7 @@ def split_data_for_modelling(gvb_dfs_final, covid_df, covid_measures, df_covid_f
     for df in gvb_dfs_final:
         df = df[['datetime'] + features + targets]
 
-        train, validation, test = h.get_train_val_test_split(df.dropna())
+        train, validation, test = data_utils.get_train_val_test_split(df.dropna())
         data_splits.append([train, validation, test])
 
     X_train_splits = []
@@ -139,7 +139,7 @@ def split_data_for_modelling(gvb_dfs_final, covid_df, covid_measures, df_covid_f
 
     for df in gvb_dfs_final:
         X_predict_dfs.append(
-            h.get_future_df(features, df, covid_df.tail(1)['stringency'][0], covid_measures, df_covid_filtered, holiday_df, vacations_df,
+            data_utils.get_future_df(features, df, covid_df.tail(1)['stringency'][0], covid_measures_df, covid_cases_deaths_df, holiday_df, vacations_df,
                             knmi_forecast, events))
 
     return data_splits, X_train_splits, y_train_splits, X_validation_splits, y_validation_splits, X_test_splits, y_test_splits, X_predict_dfs
@@ -152,7 +152,7 @@ def model(data_splits, X_train_splits, y_train_splits, X_validation_splits, y_va
     # basic_models = []
     #
     # for x in range(0, len(data_splits)):
-    #     model_basic, r_squared_basic, mae_basic, rmse_basic = h.train_random_forest_regressor(X_train_splits[x],
+    #     model_basic, r_squared_basic, mae_basic, rmse_basic = data_utils.train_random_forest_regressor(X_train_splits[x],
     #                                                                                           y_train_splits[x],
     #                                                                                           X_validation_splits[x],
     #                                                                                           y_validation_splits[x],
@@ -175,14 +175,14 @@ def model(data_splits, X_train_splits, y_train_splits, X_validation_splits, y_va
         X_train_with_val = pd.concat([X_train_splits[x], X_validation_splits[x]])
         y_train_with_val = pd.concat([y_train_splits[x], y_validation_splits[x]])
 
-        model_test, r_squared_test, mae_test, rmse_test = h.train_random_forest_regressor(X_train_with_val,
+        model_test, r_squared_test, mae_test, rmse_test = data_utils.train_random_forest_regressor(X_train_with_val,
                                                                                           y_train_with_val,
                                                                                           X_test_splits[x],
                                                                                           y_test_splits[x],
                                                                                           hyperparameters[x])
         test_models.append([model_test, r_squared_test, mae_test, rmse_test])
 
-    h.log_models(test_models, stations)
+    data_utils.log_models(test_models, stations)
 
     for x in range(0, len(test_models)):
         station_name = stations[x]
@@ -197,7 +197,7 @@ def model(data_splits, X_train_splits, y_train_splits, X_validation_splits, y_va
         y_train_with_val = pd.concat([y_train_splits[x], y_validation_splits[x], y_test_splits[x]])
 
         model_final = \
-            h.train_random_forest_regressor(X_train_with_val, y_train_with_val, X_test_splits[x], y_test_splits[x],
+            data_utils.train_random_forest_regressor(X_train_with_val, y_train_with_val, X_test_splits[x], y_test_splits[x],
                                             hyperparameters[x])[0]
         final_models.append(model_final)
 
@@ -209,7 +209,7 @@ def predict_and_save(models, X_predict_dfs):
 
     predictions = []
     for i, model in enumerate(models):
-        prediction = h.predict(model, X_predict_dfs[i].dropna())
+        prediction = data_utils.predict(model, X_predict_dfs[i].dropna())
         predictions.append(prediction)
 
     for i, prediction in enumerate(predictions):
