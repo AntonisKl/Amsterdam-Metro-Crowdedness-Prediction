@@ -7,7 +7,7 @@ import pandas as pd
 import requests
 from workalendar.europe import Netherlands
 
-stations = ['Centraal Station', 'Station Zuid']
+stations = ['Centraal Station', 'Station Zuid', 'Station Bijlmer ArenA']
 
 
 def read_data():
