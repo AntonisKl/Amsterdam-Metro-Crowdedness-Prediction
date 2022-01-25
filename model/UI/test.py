@@ -1,24 +1,21 @@
-import requests
-import dash  
-from dash import html 
-from dash import dcc
-import dash_leaflet as dl  
-import dash_leaflet.express as dlx  
-from dash_extensions.javascript import Namespace
-from dash_extensions.javascript import assign
-import geopandas as gpd
-import json
-import plotly.express as px
-import pandas as pd
-import dash_bootstrap_components as dbc
-from dash.dependencies import Input, Output
-from datetime import date, datetime, timedelta
 import glob
+import json
 import os
-import time
-from dash.long_callback import DiskcacheLongCallbackManager
+from datetime import date, datetime, timedelta
+
+import dash
+import dash_leaflet as dl
 import dash_loading_spinners as dls
 import diskcache
+import pandas as pd
+import plotly.express as px
+import requests
+from dash import dcc
+from dash import html
+from dash.dependencies import Input, Output
+from dash.long_callback import DiskcacheLongCallbackManager
+from dash_extensions.javascript import Namespace
+
 cache = diskcache.Cache("./cache")
 long_callback_manager = DiskcacheLongCallbackManager(cache)
 
@@ -71,12 +68,12 @@ fig_with_marker.add_shape( # add a horizontal "target" line
 
 
 # Markers
- 
+
 markers_ls= [
     dl.Marker(
         id = 'bijlmer',
         # title = 'Bijlmer',
-        position=[52.312132, 4.947191], 
+        position=[52.312132, 4.947191],
         children = [
             dl.Tooltip('Station Bijlmer Arena')
         ]
@@ -84,7 +81,7 @@ markers_ls= [
     dl.Marker(
         id = 'centraal',
         # title = 'Centraal',
-        position=[52.378027, 4.899773], 
+        position=[52.378027, 4.899773],
         children = [
             dl.Tooltip('Centraal Station')
         ]
@@ -92,7 +89,7 @@ markers_ls= [
     dl.Marker(
         id = 'zuid',
         # title = 'Zuid',
-        position=[52.340165, 4.873144], 
+        position=[52.340165, 4.873144],
         children = [
         dl.Tooltip('Station Zuid')
         ]
@@ -106,8 +103,8 @@ cluster = dl.MarkerClusterGroup(id="markers_ls", children=markers_ls)
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 # Create the app.  
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets, long_callback_manager=long_callback_manager)  
-app.layout = html.Div([  
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets, long_callback_manager=long_callback_manager)
+app.layout = html.Div([
     html.Div(
             [
                 html.Div(
@@ -204,19 +201,19 @@ app.layout = html.Div([
                 html.Div([
                     html.Div([
                         dl.Map(
-                            center=(52.3527598, 4.8936041), 
-                            zoom=11, 
+                            center=(52.3527598, 4.8936041),
+                            zoom=11,
                             id='map',
                             style={'height': '45vh'},
                             children = [
                                 dl.TileLayer(
-                                url=url, 
+                                url=url,
                                 maxZoom=20,
                                 attribution=attribution
                                 ),
                                 geojson,
                                 cluster
-                            ], 
+                            ],
                         ),
                     ]),
                     html.Div([
@@ -236,7 +233,7 @@ app.layout = html.Div([
                         ),
                     ],
                         className = 'date-div',
-                        id = 'date-picker-div'    
+                        id = 'date-picker-div'
                     ),
                     html.Div([
                         dcc.Graph(
@@ -246,7 +243,7 @@ app.layout = html.Div([
                         )
                     ],
                         id = "line-graph-div"
-                    )  
+                    )
                 ],
                     id = 'map-div',
                     className = 'eight columns div-for-charts bg-grey'
@@ -255,7 +252,7 @@ app.layout = html.Div([
             id="header",
             className='row',
         ),
-])  
+])
 
 @app.callback([Output("station-div", "children"),
                 Output('line-graph', 'figure')],
@@ -269,11 +266,11 @@ app.layout = html.Div([
 def marker_click(one, two, three, date_value, submit, features, events, covid):
     global marker_name
     global complete
-    print(dash.callback_context.triggered[0]["prop_id"].split(".")[0]) 
-    
+    print(dash.callback_context.triggered[0]["prop_id"].split(".")[0])
+
     if dash.callback_context.triggered[0]["prop_id"].split(".")[0] in ('centraal', 'zuid', 'bijlmer'):
-        marker_id = dash.callback_context.triggered[0]["prop_id"].split(".")[0] 
-        
+        marker_id = dash.callback_context.triggered[0]["prop_id"].split(".")[0]
+
         if marker_id == 'zuid':
             marker_name = 'Station Zuid'
         elif marker_id == 'bijlmer':
@@ -284,23 +281,23 @@ def marker_click(one, two, three, date_value, submit, features, events, covid):
             marker_name = 'Select a station to update the following graph.'
 
         if marker_name != 'Select a station to update the following graph.':
-            
+
             selected_output = getlatestfile(marker_name, date_value)
             print(selected_output)
             fig = setgraphinfo(selected_output)
-        
+
     elif dash.callback_context.triggered[0]["prop_id"].split(".")[0] == 'date-picker-single':
-        
+
         selected_output = getlatestfile(marker_name, date_value)
 
         fig = setgraphinfo(selected_output)
-    
+
     elif dash.callback_context.triggered[0]["prop_id"].split(".")[0] == 'submit-button':
         print(date_value)
         complete = 'Start'
         print(complete)
         result = getpredictions(features, events, covid)
-        
+
         if result == True:
             complete = 'Success'
             selected_output = getlatestfile(marker_name, date_value)
@@ -336,7 +333,7 @@ def getlatestfile(marker, date):
     selected_output['average_checkinouts'] = (selected_output['check-ins_predicted']+selected_output['check-outs_predicted'])
 
     selected_output = selected_output.loc[selected_output['datetime'] == date]
-    
+
     return selected_output
 
 
@@ -373,7 +370,7 @@ def setgraphinfo(selected):
 def getpredictions(features, events, covid):
     # GET Request
     URL = 'http://127.0.0.1:5000/train-and-predict'
-    
+
     features = ','.join(features)
     features = features+ ',hour,planned_event'
 
@@ -387,10 +384,10 @@ def getpredictions(features, events, covid):
     PARAMS = {'features': features}
     PARAMS.update(events)
     PARAMS.update(covid)
-    
+
     print(PARAMS)
     r= requests.get(url = URL, params = PARAMS)
-    
+
     # Extracting data in json format
     data = r.json()
     #return ''
@@ -489,5 +486,5 @@ def getpredictions(features, events, covid):
 #     return figure
 
 
-if __name__ == '__main__':  
+if __name__ == '__main__':
     app.run_server(debug = True)
