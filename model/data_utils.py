@@ -796,7 +796,7 @@ def find_time_between_peak_and_start_event():
     print(avg_peakhour)
     
 # models: array in format [[<SciKit model object>, <number>, <number>, <number>], ... ]
-def log_models(models, stations):
+def log_models(models, stations, features):
     models_log_dict = {'Station': [], 'Model': []}
     for key in config['DEFAULT'].keys():
         models_log_dict[key] = []
@@ -816,6 +816,9 @@ def log_models(models, stations):
         models_log_dict['UseCOVIDMeasures'].append(config_use_covid_measures)
         models_log_dict['UseCOVIDCases'].append(config_use_covid_cases)
         models_log_dict['UseCOVIDDeaths'].append(config_use_covid_deaths)
+        models_log_dict['Global radiation'].append('global_radiation' in features)
+        models_log_dict['Check-ins week ago'].append('check-ins_week_ago' in features)
+        models_log_dict['Check-outs week ago'].append('check-outs_week_ago' in features)
 
         models_log_dict['R-squared'].append(builtins.round(model[1], 3))
         models_log_dict['MAE'].append(builtins.round(model[2], 3))

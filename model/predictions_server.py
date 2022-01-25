@@ -106,7 +106,7 @@ def train_and_predict():
         features)
 
     final_models = model(data_splits, X_train_splits, y_train_splits, X_validation_splits, y_validation_splits,
-                         X_test_splits, y_test_splits)
+                         X_test_splits, y_test_splits, features)
 
     predict_and_save(final_models, X_predict_dfs)
 
