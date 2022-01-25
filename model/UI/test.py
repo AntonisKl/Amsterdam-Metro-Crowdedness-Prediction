@@ -129,9 +129,12 @@ app.layout = html.Div([
                                         {'label': 'Wind Speed', 'value': 'wind_speed'},
                                         {'label': 'Precipitation', 'value': 'precipitation_h'},
                                         {'label': 'Global Radiation', 'value': 'global_radiation'},
+                                        {'label': 'Check-ins week ago', 'value': 'check-ins_week_ago'},
+                                        {'label': 'Check-outs week ago', 'value': 'check-outs_week_ago'},
                                     ],
-                                    value=['year', 'month', 'weekday', 'hour', 'holiday', 'vacation', 'planned_event',
-                                    'temperature', 'wind_speed', 'precipitation_h',  'global_radiation'],
+                                    value=['year', 'month', 'weekday','holiday', 'vacation',
+                                    'temperature', 'wind_speed', 'precipitation_h',  'global_radiation',
+                                    'check-ins_week_ago', 'check-outs_week_ago'],
                                     multi=True,
                                     className = 'dropdown-class',
                                     id = 'features-dropdown'
@@ -140,8 +143,8 @@ app.layout = html.Div([
                                     html.P('EVENTS', className = 'dropdown-header'),
                                     dcc.Dropdown(
                                     options=[
-                                        {'label': 'Instagram', 'value': 'includeInstagramEvents:true'},
-                                        {'label': 'Ticketmaster', 'value': 'includeTicketmasterEvents:true'},
+                                        {'label': 'Include Instagram Events', 'value': 'includeInstagramEvents:true'},
+                                        {'label': 'Include Ticketmaster Events', 'value': 'includeTicketmasterEvents:true'},
                                         {'label': 'Normalized Visitors', 'value': 'useNormalizedVisitors:true'},
                                         {'label': 'Time Of Events', 'value': 'useTimeOfEvents:true'}
                                     ],
@@ -189,7 +192,10 @@ app.layout = html.Div([
                                     )
                                 ],
                                     className='submit-btn'
-                                )
+                                ),
+                                html.Div([
+
+                                ])
                             ],)
                         ],
                             className='row'
@@ -368,18 +374,51 @@ def setgraphinfo(selected):
 
 
 def getpredictions(features, events, covid):
+
+    eventDict = {
+       'includeInstagramEvents':'false',
+        'includeTicketmasterEvents':'false',
+        'useTimeOfEvents':'false',
+        'useNormalizedVisitors':'false'
+    }
+
+    covidDict = {
+        'useCOVIDStringency':'false',
+        'useCOVIDMeasures':'false',
+        'useCOVIDCases':'false',
+        'useCOVIDDeaths':'false'
+    }
     # GET Request
     URL = 'http://127.0.0.1:5000/train-and-predict'
 
     features = ','.join(features)
     features = features+ ',hour,planned_event'
 
-    print(features)
+    if events == []:
+        events = eventDict
+    elif len(events) < len(eventDict):
+        print('in else if')
+        events =  dict(s.split(':') for s in events)
+        for key in eventDict:
+            if key in events.keys():
+                print('key exists')   
+            else:
+                events[key]='false'
+    else:
+        events =  dict(s.split(':') for s in events)
 
-
-    events =  dict(s.split(':') for s in events)
-
-    covid = dict(s.split(':') for s in covid)
+    if covid == []:
+        covid = covidDict
+    elif len(covid) < len(covidDict):
+        print('in else if')
+        covid =  dict(s.split(':') for s in covid)
+        for key in covidDict:
+            if key in covid.keys():
+                print('key exists')   
+            else:
+                covid[key]='false'
+    else:
+        covid = dict(s.split(':') for s in covid)
 
     PARAMS = {'features': features}
     PARAMS.update(events)
@@ -486,5 +525,5 @@ def getpredictions(features, events, covid):
 #     return figure
 
 
-if __name__ == '__main__':
-    app.run_server(debug = True)
+if __name__ == '__main__':  
+    app.run_server()
