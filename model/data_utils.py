@@ -755,7 +755,46 @@ def merge_bestemming_herkomst_stop_level(bestemming, herkomst):
 
     return merged
 
+def get_busiest_x_hours():
+    #todo make it dynamic
+    top_promille = 1
+    bijlmer_df = gvb_dfs_merged[2].sort_values(by=['datetime_full'])
+    for df in gvb_dfs:
+        #checkout_bijlmer_df = newbijlmer_df.sort_values(by=['check-outs'])
+        checkout_bijlmer_df = df.sort_values(by=['check-outs'])
+        checkout_bijlmer_df = checkout_bijlmer_df.drop(columns=['check-ins'])
+        checkout_bijlmer_df = checkout_bijlmer_df.dropna(axis='rows')
+        last_x = round(len(checkout_bijlmer_df)/1000*top_promille)
+        top_x = checkout_bijlmer_df.tail(last_x)
+        print(top_x['check-outs'].iloc[0])
 
+        
+def find_time_between_peak_and_start_event():  
+    # todo make it dynamic
+    # FIND AVERAGE TIME BETWEEN PEAK AND EVENT
+    # Recommended Average peak is 2 hours
+    events_visited = events[events['Aantal bezoekers']>0]
+    counter_list = []
+    bijlmer_df = gvb_dfs_merged[2].sort_values(by=['datetime_full'])
+    newbijlmer_df = bijlmer_df.iloc[:, :-106]
+
+    hours_back = 4
+    for date in events_visited['Datetime']:
+        idx = newbijlmer_df.index[newbijlmer_df['datetime_full'] == date]
+        if (idx > 0) : # if events dont start at a round hour it is ignored for now
+            max = 0
+            counter = -1 # because at hour starttime of event(minus zero) will always be bigger than 0
+            for i in range(hours_back):
+                lookup = date - timedelta(hours=i)
+                df_comb = newbijlmer_df[newbijlmer_df['datetime_full'] == lookup]
+                if (df_comb['check-outs'].values > max):
+                    counter = counter + 1
+                    max = df_comb['check-outs'].values
+            counter_list.append(counter)
+
+    avg_peakhour = sum(counter_list) / len(counter_list)
+    print(avg_peakhour)
+    
 # models: array in format [[<SciKit model object>, <number>, <number>, <number>], ... ]
 def log_models(models, stations):
     models_log_dict = {'Station': [], 'Model': []}
