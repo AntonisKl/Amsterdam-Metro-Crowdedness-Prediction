@@ -146,7 +146,7 @@ def split_data_for_modelling(gvb_dfs_final, covid_df, covid_measures_df, covid_c
 
 
 def model(data_splits, X_train_splits, y_train_splits, X_validation_splits, y_validation_splits, X_test_splits,
-          y_test_splits):
+          y_test_splits, features):
     print('Start modelling')
 
     # basic_models = []
@@ -181,7 +181,7 @@ def model(data_splits, X_train_splits, y_train_splits, X_validation_splits, y_va
                                                                                           hyperparameters[x])
         test_models.append([model_test, r_squared_test, mae_test, rmse_test])
 
-    data_utils.log_models(test_models, stations)
+    data_utils.log_models(test_models, stations, features)
 
     for x in range(0, len(test_models)):
         station_name = stations[x]
