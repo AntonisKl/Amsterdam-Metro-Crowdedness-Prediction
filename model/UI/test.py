@@ -1,7 +1,3 @@
-from distutils.log import debug
-from pydoc import classname
-from select import select
-from xml.dom.minidom import Document
 import requests
 import dash  
 from dash import html 
@@ -13,7 +9,6 @@ from dash_extensions.javascript import assign
 import geopandas as gpd
 import json
 import plotly.express as px
-import plotly.graph_objs as go
 import pandas as pd
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
@@ -23,7 +18,6 @@ import os
 import time
 from dash.long_callback import DiskcacheLongCallbackManager
 import dash_loading_spinners as dls
-import dash_bootstrap_components as dbc
 import diskcache
 cache = diskcache.Cache("./cache")
 long_callback_manager = DiskcacheLongCallbackManager(cache)
@@ -81,7 +75,7 @@ fig_with_marker.add_shape( # add a horizontal "target" line
 markers_ls= [
     dl.Marker(
         id = 'bijlmer',
-        title = 'Bijlmer',
+        # title = 'Bijlmer',
         position=[52.312132, 4.947191], 
         children = [
             dl.Tooltip('Station Bijlmer Arena')
@@ -89,7 +83,7 @@ markers_ls= [
     ),
     dl.Marker(
         id = 'centraal',
-        title = 'Centraal',
+        # title = 'Centraal',
         position=[52.378027, 4.899773], 
         children = [
             dl.Tooltip('Centraal Station')
@@ -97,7 +91,7 @@ markers_ls= [
     ),
     dl.Marker(
         id = 'zuid',
-        title = 'Zuid',
+        # title = 'Zuid',
         position=[52.340165, 4.873144], 
         children = [
         dl.Tooltip('Station Zuid')
@@ -133,7 +127,7 @@ app.layout = html.Div([
                                        # {'label': 'Hour', 'value': 'hour', 'disabled': True},
                                         {'label': 'Holiday', 'value': 'holiday'},
                                         {'label': 'Vacation', 'value': 'vacation'},
-                                        {'label': 'Planned Event', 'value': 'planned_event'},
+                                       # {'label': 'Planned Event', 'value': 'planned_event'},
                                         {'label': 'Temperature', 'value': 'temperature'},
                                         {'label': 'Wind Speed', 'value': 'wind_speed'},
                                         {'label': 'Precipitation', 'value': 'precipitation_h'},
@@ -305,15 +299,14 @@ def marker_click(one, two, three, date_value, submit, features, events, covid):
         print(date_value)
         complete = 'Start'
         print(complete)
-        print(Document.getElementById('loading-div'))
-        #result = getpredictions(features, events, covid)
+        result = getpredictions(features, events, covid)
         
-        # if result == True:
-        #     complete = 'Success'
-        #     selected_output = getlatestfile(marker_name, date_value)
-        #     fig = setgraphinfo(selected_output)
-        # else:
-        #     complete = 'Error'
+        if result == True:
+            complete = 'Success'
+            selected_output = getlatestfile(marker_name, date_value)
+            fig = setgraphinfo(selected_output)
+        else:
+            complete = 'Error'
     return marker_name, fig
 
 
@@ -330,10 +323,6 @@ def marker_click(one, two, three, date_value, submit, features, events, covid):
 #     else:
 #         return {'display': 'none'}  
 
-def changeDisplay(id):
-    id.style.display = 'block'
-    print(id)
-
 
 
 def getlatestfile(marker, date):
@@ -344,7 +333,7 @@ def getlatestfile(marker, date):
 
     #Read latest file
     selected_output = pd.read_csv(latest_file)
-    selected_output['average_checkinouts'] = (selected_output['check-ins_predicted']+selected_output['check-outs_predicted'])/2
+    selected_output['average_checkinouts'] = (selected_output['check-ins_predicted']+selected_output['check-outs_predicted'])
 
     selected_output = selected_output.loc[selected_output['datetime'] == date]
     
@@ -384,8 +373,12 @@ def setgraphinfo(selected):
 def getpredictions(features, events, covid):
     # GET Request
     URL = 'http://127.0.0.1:5000/train-and-predict'
-
+    
     features = ','.join(features)
+    features = features+ ',hour,planned_event'
+
+    print(features)
+
 
     events =  dict(s.split(':') for s in events)
 
@@ -395,11 +388,12 @@ def getpredictions(features, events, covid):
     PARAMS.update(events)
     PARAMS.update(covid)
     
+    print(PARAMS)
     r= requests.get(url = URL, params = PARAMS)
     
     # Extracting data in json format
     data = r.json()
-
+    #return ''
     return data['success']
 
 
