@@ -642,7 +642,7 @@ def get_future_df(features, gvb_data, covid_stringency, measures, covid_cases_de
 
     if config_use_covid_cases or config_use_covid_deaths:
         df = pd.merge(df, covid_cases_deaths, on='datetime', how='left')
-        display(df[df['datetime'] == datetime_start_of_today]['cases'])
+
         if config_use_covid_cases:
             df['cases'].fillna(
                 df[df['datetime'] == datetime_start_of_today]['cases'].values[0], inplace=True)
