@@ -800,7 +800,8 @@ def log_models(models, stations, features):
     models_log_dict = {'Station': [], 'Model': []}
     for key in config['DEFAULT'].keys():
         models_log_dict[key] = []
-    models_log_dict.update({'R-squared': [], 'MAE': [], 'RMSE': []})
+    models_log_dict.update({'R-squared': [], 'MAE': [], 'RMSE': [], 'Global radiation': [], 'Check-ins week ago': [],
+                            'Check-outs week ago': []})
 
     for i, model in enumerate(models):
         models_log_dict['Station'].append(stations[i])
