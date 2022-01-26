@@ -410,6 +410,12 @@ def getpredictions(features, events, covid):
     else:
         covid = dict(s.split(':') for s in covid)
 
+    for key in covid: 
+        if key in ('useCOVIDStringency', 'useCOVIDCases', 'useCOVIDDeaths'):
+            if covid[key] == 'true':
+                features = features+','+key.split("COVID",1)[1].lower().strip()
+
+
     PARAMS = {'features': features}
     PARAMS.update(events)
     PARAMS.update(covid)
@@ -419,7 +425,7 @@ def getpredictions(features, events, covid):
 
     # Extracting data in json format
     data = r.json()
-
+    
     return data['success']
 
 
