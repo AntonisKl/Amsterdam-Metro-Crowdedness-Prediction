@@ -1,3 +1,4 @@
+from distutils.log import debug
 import glob
 import json
 import os
@@ -104,6 +105,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 # Create the app.  
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets, long_callback_manager=long_callback_manager)
+app.title = 'GVB Predictions'
 app.layout = html.Div([
     html.Div(
             [
@@ -121,10 +123,8 @@ app.layout = html.Div([
                                         {'label': 'Year', 'value': 'year'},
                                         {'label': 'Month', 'value': 'month'},
                                         {'label': 'Weekday', 'value': 'weekday'},
-                                       # {'label': 'Hour', 'value': 'hour', 'disabled': True},
                                         {'label': 'Holiday', 'value': 'holiday'},
                                         {'label': 'Vacation', 'value': 'vacation'},
-                                       # {'label': 'Planned Event', 'value': 'planned_event'},
                                         {'label': 'Temperature', 'value': 'temperature'},
                                         {'label': 'Wind Speed', 'value': 'wind_speed'},
                                         {'label': 'Precipitation', 'value': 'precipitation_h'},
@@ -139,6 +139,12 @@ app.layout = html.Div([
                                     className = 'dropdown-class',
                                     id = 'features-dropdown'
                                 ),
+                                html.Div([
+                                    html.P('Note that features - Planned Event and Hour are crucial for running the modelling process and hence, cannot be omitted in the training.',
+                                    style = {
+                                            'padding-top': '3%'
+                                    })
+                                ]),
                                 html.Div([
                                     html.P('EVENTS', className = 'dropdown-header'),
                                     dcc.Dropdown(
@@ -171,25 +177,6 @@ app.layout = html.Div([
                                 ]),
                                 html.Div([
                                     html.Button('SUBMIT', id = 'submit-button', n_clicks=0),
-                                    #dcc.Input(id="loading-input-1", value='Input triggers local spinner'),
-                                    # dcc.Loading(
-                                    #     id="loading-1",
-                                    #     type="circle",
-                                    #     isloading = True,
-                                    #     children=html.Div(id="loading-output-1")
-                                    # ),
-                                    html.Div([
-                                        dls.Roller(
-                                            color= '#007eff',
-                                            id = 'loading-component',
-                                            #show_initially = False
-                                        )
-                                    ],
-                                        id = 'loading-div',
-                                        style = {
-                                            'display':'none'
-                                        }
-                                    )
                                 ],
                                     className='submit-btn'
                                 ),
@@ -242,11 +229,15 @@ app.layout = html.Div([
                         id = 'date-picker-div'
                     ),
                     html.Div([
-                        dcc.Graph(
+                        dcc.Loading(
+                            id="loading-1",
+                            type="circle",
+                            children=dcc.Graph(
                             figure= fig_with_marker,
                             style={'height': '40vh'},
                             id = 'line-graph'
-                        )
+                            )
+                        ),
                     ],
                         id = "line-graph-div"
                     )
@@ -290,42 +281,25 @@ def marker_click(one, two, three, date_value, submit, features, events, covid):
 
             selected_output = getlatestfile(marker_name, date_value)
             print(selected_output)
-            fig = setgraphinfo(selected_output)
+            fig = setgraphinfo(selected_output, marker_name)
 
     elif dash.callback_context.triggered[0]["prop_id"].split(".")[0] == 'date-picker-single':
 
         selected_output = getlatestfile(marker_name, date_value)
 
-        fig = setgraphinfo(selected_output)
+        fig = setgraphinfo(selected_output, marker_name)
 
     elif dash.callback_context.triggered[0]["prop_id"].split(".")[0] == 'submit-button':
         print(date_value)
-        complete = 'Start'
-        print(complete)
         result = getpredictions(features, events, covid)
 
         if result == True:
             complete = 'Success'
             selected_output = getlatestfile(marker_name, date_value)
-            fig = setgraphinfo(selected_output)
+            fig = setgraphinfo(selected_output, marker_name)
         else:
             complete = 'Error'
     return marker_name, fig
-
-
-# @app.callback(Output("loading-div", "style"), 
-#             Input("submit-button", "n_clicks"),
-#             prevent_initial_call=True)
-# def input_triggers_spinner(value):
-#     global complete
-
-#     print(complete)
-
-#     if complete == 'Start':
-#         return {'display':'block'}
-#     else:
-#         return {'display': 'none'}  
-
 
 
 def getlatestfile(marker, date):
@@ -336,18 +310,22 @@ def getlatestfile(marker, date):
 
     #Read latest file
     selected_output = pd.read_csv(latest_file)
-    selected_output['average_checkinouts'] = (selected_output['check-ins_predicted']+selected_output['check-outs_predicted'])
+    #if selected_output['check-ins_predicted']:
+    #    selected_output['sumcheckinsouts'] = selected_output['check-outs_predicted']
+    #else:
+    selected_output['sumcheckinsouts'] = (selected_output['check-ins_predicted']+selected_output['check-outs_predicted'])
 
     selected_output = selected_output.loc[selected_output['datetime'] == date]
 
     return selected_output
 
 
-def setgraphinfo(selected):
+def setgraphinfo(selected, marker):
+    print('in set graph info - ', marker)
     figure = px.line(
             selected,
             x = "hour",
-            y = "average_checkinouts",
+            y = "sumcheckinsouts",
             #Markers Property
             markers = True,
         )
@@ -357,18 +335,30 @@ def setgraphinfo(selected):
         plot_bgcolor = 'rgb(49,48,47)',
         hovermode='closest',
         margin={'l': 30, 'b': 30, 't': 10, 'r': 0},
-        font_color = 'white'
+        font_color = 'white',
+        xaxis_title =  'Hour',
+        yaxis_title = 'Total Check-ins and Check-outs'
     )
 
 
     figure.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgb(77,76,76)', zeroline=False)
     figure.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgb(77,76,76)', zeroline=False)
 
-
-    figure.add_shape( # add a horizontal "target" line
+    if marker_name == 'Centraal Station':
+        figure.add_shape( # add a horizontal "target" line
         type="line", line_color="salmon", line_width=3, opacity=1, line_dash="dot",
-        x0=0, x1=1, xref="paper", y0=1500, y1=1500, yref="y"
-    )
+        x0=0, x1=1, xref="paper", y0=8845, y1=8845, yref="y"
+        )
+    elif marker_name == 'Station Zuid':
+        figure.add_shape( # add a horizontal "target" line
+        type="line", line_color="salmon", line_width=3, opacity=1, line_dash="dot",
+        x0=0, x1=1, xref="paper", y0=5428, y1=5428, yref="y"
+        )
+    elif marker_name == 'Station Bijlmer ArenA':
+        figure.add_shape( # add a horizontal "target" line
+        type="line", line_color="salmon", line_width=3, opacity=1, line_dash="dot",
+        x0=0, x1=1, xref="paper", y0=3562, y1=3562, yref="y"
+        )
 
     return figure
 
@@ -429,100 +419,8 @@ def getpredictions(features, events, covid):
 
     # Extracting data in json format
     data = r.json()
-    #return ''
+
     return data['success']
-
-
-# @app.callback(
-#     Output('line-graph', 'figure'),
-#     [Input('submit-button', 'n_clicks'),
-#     Input('features-dropdown', 'value')]
-# )
-# def update_output(n_clicks, value):
-#     # GET Request
-#     URL = 'http://127.0.0.1:5000/train-and-predict'
-
-#     PARAMS = {'features': 'year,month,weekday,hour,holiday,vacation,planned_event,temperature,wind_speed,precipitation_h,global_radiation',
-#     'useMeasures': 'true',
-#     'useNormalizedVisitors': 'false',
-#     'maxHoursBeforeEvent': '24'}
-
-#     r= requests.get(url = URL, params = PARAMS)
-#     print(r)
-
-#     #  Extracting data in json format
-#     data = r.json()
-#     return data
-
-
-
-# @app.long_callback(
-#     output=Output("loading-div", "style"),
-#     inputs=Input("submit-button", "n_clicks"),
-#     running=[
-#         (Output("submit-button", "disabled"), True, False),
-#         # (
-#         #     Output("progress_bar", "style"),
-#         #     {"visibility": "visible"},
-#         #     {"visibility": "hidden"},
-#         # ),
-#     ],
-#     # progress=[Output("progress_bar", "value"), Output("progress_bar", "max")]
-# )
-# def callback(n_clicks):
-#     total = 10
-#     if n_clicks is not None:
-#         for i in range(total):
-#             time.sleep(0.5)
-#     return [f"Clicked {n_clicks} times"]
-
-
-
-# @app.callback(Output("line-graph", "figure"),
-#               [Input('my-date-picker-single', 'date'),
-#               Input('station-div', 'children' )])
-# def update_output(date_value, value):
-#     print(date_value)
-#     print(value)
-
-#     # Get latest file from the folder
-
-#     list_of_files = glob.glob('../output/' + value + '/*')
-#     latest_file = max(list_of_files, key=os.path.getctime)
-#     print(latest_file)
-
-#     #Read latest file
-#     selected_output = pd.read_csv(latest_file)
-#     selected_output['average_checkinouts'] = (selected_output['check-ins_predicted']+selected_output['check-outs_predicted'])/2
-#     selected_output = selected_output.loc[selected_output['datetime'] == today]
-
-#     figure = px.line(
-#             selected_output,
-#             x = "hour",
-#             y = "average_checkinouts",
-#             #Markers Property
-#             markers = True,
-#         )
-
-#     figure.update_layout(
-#         paper_bgcolor = 'rgb(49,48,47)',
-#         plot_bgcolor = 'rgb(49,48,47)',
-#         hovermode='closest',
-#         margin={'l': 30, 'b': 30, 't': 10, 'r': 0},
-#         font_color = 'white'
-#     )
-
-
-#     figure.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgb(77,76,76)', zeroline=False)
-#     fig_with_marker.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgb(77,76,76)', zeroline=False)
-
-
-#     figure.add_shape( # add a horizontal "target" line
-#         type="line", line_color="salmon", line_width=3, opacity=1, line_dash="dot",
-#         x0=0, x1=1, xref="paper", y0=1500, y1=1500, yref="y"
-#     )
-
-#     return figure
 
 
 if __name__ == '__main__':  
