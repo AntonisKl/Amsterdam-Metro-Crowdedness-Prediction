@@ -115,9 +115,9 @@ app.layout = html.Div([
                         html.H2(
                             'GVB PREDICTIONS'
                         ),
-                        html.P('Select one or more features to see the updated predictions'),
                         html.Div([
                             html.Div([
+                                html.P('Features', className='dropdown-header'),
                                 dcc.Dropdown(
                                     options=[
                                         {'label': 'Year', 'value': 'year'},
@@ -146,13 +146,13 @@ app.layout = html.Div([
                                     })
                                 ]),
                                 html.Div([
-                                    html.P('EVENTS', className = 'dropdown-header'),
+                                    html.P('Events improvements', className = 'dropdown-header'),
                                     dcc.Dropdown(
                                     options=[
-                                        {'label': 'Include Instagram Events', 'value': 'includeInstagramEvents:true'},
-                                        {'label': 'Include Ticketmaster Events', 'value': 'includeTicketmasterEvents:true'},
-                                        {'label': 'Normalized Visitors', 'value': 'useNormalizedVisitors:true'},
-                                        {'label': 'Time Of Events', 'value': 'useTimeOfEvents:true'}
+                                        {'label': 'Include Instagram events', 'value': 'includeInstagramEvents:true'},
+                                        {'label': 'Include Ticketmaster events', 'value': 'includeTicketmasterEvents:true'},
+                                        {'label': 'Use events\' attendance', 'value': 'useNormalizedVisitors:true'},
+                                        {'label': 'Affect only 3 hours before events\' start time', 'value': 'useTimeOfEvents:true'}
                                     ],
                                     value=[],
                                     multi=True,
@@ -161,7 +161,7 @@ app.layout = html.Div([
                                     )
                                 ]),
                                 html.Div([
-                                    html.P('COVID-19', className = 'dropdown-header'),
+                                    html.P('COVID-19 datasets', className = 'dropdown-header'),
                                     dcc.Dropdown(
                                     options=[
                                         {'label': 'Stringency', 'value': 'useCOVIDStringency:true'},
