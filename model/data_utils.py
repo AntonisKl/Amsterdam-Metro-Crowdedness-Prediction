@@ -830,7 +830,8 @@ def log_models(models, stations, features):
     if os.path.exists('output/models_log.csv'):
         old_models_log_df = pd.read_csv('output/models_log.csv')
         models_log_df = pd.concat([old_models_log_df, models_log_df])
-        models_log_df.drop_duplicates(subset=['Station'] + list(config['DEFAULT'].keys()), inplace=True)
+        models_log_df.drop_duplicates(
+            subset=['Station', 'Global radiation', 'Check-ins week ago', 'Check-outs week ago'] + list(
+                config['DEFAULT'].keys()), inplace=True)
 
-    # print(models_log_df)
     models_log_df.to_csv('output/models_log.csv', index=False)
