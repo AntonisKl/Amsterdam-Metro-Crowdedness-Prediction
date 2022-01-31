@@ -23,6 +23,8 @@ config_include_ticketmaster_events = config['DEFAULT'].getboolean('IncludeTicket
 config_use_time_of_events = config['DEFAULT'].getboolean('UseTimeOfEvents')
 config_max_hours_before_event = config['DEFAULT'].getint('MaxHoursBeforeEvent')
 config_max_minutes_before_event = config['DEFAULT'].getint('MaxMinutesBeforeEvent')
+config_max_hours_after_event = config['DEFAULT'].getint('MaxHoursAfterEvent')
+config_max_minutes_after_event = config['DEFAULT'].getint('MaxMinutesAfterEvent')
 config_use_covid_stringency = config['DEFAULT'].getboolean('UseCOVIDStringency')
 config_use_covid_measures = config['DEFAULT'].getboolean('UseCOVIDMeasures')
 config_use_covid_cases = config['DEFAULT'].getboolean('UseCOVIDCases')
@@ -174,11 +176,14 @@ def get_events():
     if config_use_time_of_events:
         events.dropna(subset=['Start show'], inplace=True)
         events['Start show'] = events['Start show'].astype(str).apply(lambda time: time.replace('1899-12-30 ', '')[:5])
+        events['Einde show'] = events['Einde show'].astype(str).apply(lambda time: time.replace('1899-12-30 ', '')[:5])
 
     events['Datum'] = events['Datum'].astype('datetime64[ns]')
     if config_use_time_of_events:
         events['Datetime'] = pd.to_datetime(
             events['Datum'].dt.strftime('%Y-%m-%d') + ' ' + events['Start show'].astype(str))
+        events['End datetime'] = pd.to_datetime(
+            events['Datum'].dt.strftime('%Y-%m-%d') + ' ' + events['Einde show'].astype(str), errors='coerce')
 
     if config_include_instagram_events:
         # Prepare instagram events
@@ -670,9 +675,15 @@ def get_planned_event_value(gvb_merged_row, events_df):
     mask = (events_df['Datum'] == gvb_merged_row['datetime'])
     if config_use_time_of_events:
         # each event is affecting the last config_max_hours_before_event hours before it happens
-        mask = (gvb_merged_row['datetime_full'] >= events_df['Datetime'] - timedelta(
-            hours=config_max_hours_before_event, minutes=config_max_minutes_before_event)) & \
-               (gvb_merged_row['datetime_full'] <= events_df['Datetime'])
+        # and the next config_max_hours_after_event hours after it happens
+        before_event_cond = (gvb_merged_row['datetime_full'] >= events_df['Datetime'] - timedelta(
+            hours=config_max_hours_before_event, minutes=config_max_minutes_before_event)) & (
+                                    gvb_merged_row['datetime_full'] <= events_df['Datetime'])
+        after_event_cond = (~events_df['End datetime'].isna()) & (
+                gvb_merged_row['datetime_full'] <= events_df['End datetime'] + timedelta(
+            hours=config_max_hours_after_event, minutes=config_max_minutes_after_event)) & (
+                gvb_merged_row['datetime_full'] >= events_df['End datetime'])
+        mask = (before_event_cond) | (after_event_cond)
 
     if config_use_normalized_visitors:
         visitors_normalized = events_df[mask]['visitors_normalized']
@@ -813,6 +824,8 @@ def log_models(models, stations, features):
         models_log_dict['UseTimeOfEvents'].append(config_use_time_of_events)
         models_log_dict['MaxHoursBeforeEvent'].append(int(config_max_hours_before_event))
         models_log_dict['MaxMinutesBeforeEvent'].append(int(config_max_minutes_before_event))
+        models_log_dict['MaxHoursAfterEvent'].append(int(config_max_hours_after_event))
+        models_log_dict['MaxMinutesAfterEvent'].append(int(config_max_minutes_after_event))
         models_log_dict['UseCOVIDStringency'].append(config_use_covid_stringency)
         models_log_dict['UseCOVIDMeasures'].append(config_use_covid_measures)
         models_log_dict['UseCOVIDCases'].append(config_use_covid_cases)
