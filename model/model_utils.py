@@ -23,9 +23,10 @@ def read_data():
     herkomst_2021 = data_utils.get_gvb_data('Datalab_Reis_Herkomst_Uur_2021')
     bestemming_2021 = data_utils.get_gvb_data('Datalab_Reis_Bestemming_Uur_2021')
 
-    bestemming_2021 = data_utils.get_gvb_data_json(bestemming_2021)
+    bestemming_2021 = data_utils.get_gvb_data_json_checkout(bestemming_2021)
+    herkomst_2021 = data_utils.get_gvb_data_json_checkin(herkomst_2021)
 
-    knmi_obs = data_utils.get_knmi_data('knmi/knmi-observations/2021/**/**/*')
+    knmi_obs = data_utils.get_knmi_data('knmi/knmi-observations/**/**/**/*')
     knmi_preds = data_utils.get_knmi_data('knmi/knmi/**/**/**/*.json.gz')
 
     covid_measures_df = data_utils.get_covid_measures()
