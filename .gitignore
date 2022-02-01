@@ -137,6 +137,7 @@ dmypy.json
 
 model/knmi/
 model/gvb/
+model/gvb-herkomst/
 model/output/
 
 ticketmaster-event-fetcher/config.py
