@@ -8,6 +8,7 @@ import re
 from datetime import datetime, timedelta, date
 from glob import glob
 
+import geopy.distance
 import numpy as np
 import pandas as pd
 import requests
@@ -18,6 +19,7 @@ config = configparser.ConfigParser()
 config.optionxform = str
 config.read('config.ini')
 config_use_normalized_visitors = config['DEFAULT'].getboolean('UseNormalizedVisitors')
+config_use_event_station_distance = config['DEFAULT'].getboolean('UseEventStationDistance')
 config_include_instagram_events = config['DEFAULT'].getboolean('IncludeInstagramEvents')
 config_include_ticketmaster_events = config['DEFAULT'].getboolean('IncludeTicketmasterEvents')
 config_use_time_of_events = config['DEFAULT'].getboolean('UseTimeOfEvents')
@@ -270,6 +272,35 @@ def get_events():
     # max_num_visitors_per_day = events.groupby(['Datum'])['Aantal bezoekers'].sum().max()
     events['visitors_normalized'] = events['Aantal bezoekers'] / events['Aantal bezoekers'].max()
 
+    if config_use_event_station_distance:
+        venues_coords = {
+            'Ziggo Dome': (52.313522864427696, 4.9371839278273875),
+            'Endemol': (52.31535991263321, 4.934918212484825),
+            'AFAS Live': (52.31208301885852, 4.944499883649119),
+            'De Toekomst': (52.31302103804334, 4.928368425789856),
+            'Arena': (52.31452213292746, 4.94193191229651),
+            'Gaasperplas': (52.3929282804607, 4.902166515382845),
+            'Paradiso': (52.36241084594603, 4.8839668313372515),
+            'Afas Live': (52.31198463100763, 4.9445106122964555),
+            'Olympisch Stadion': (52.34344264336677, 4.853012827639222),
+            'Melkweg': (52.36483839071882, 4.881184525790839),
+            'Royal Theater Carré': (52.36241338668293, 4.90423151229743),
+            'Beurs van Berlage': (52.375140777876005, 4.896203485310937),
+            'Concertgebouw': (52.35645333735133, 4.8790282122973085),
+            'De Waalse Kerk': (52.37110648416711, 4.897230269968681),
+            'Lovelee': (52.36487084204627, 4.881842227639652)
+        }
+
+        stations_coords = {
+            'Centraal Station': (52.379338119590415, 4.9001788162610875),
+            'Station Zuid': (52.33988258200082, 4.873346017322016),
+            'Station Bijlmer ArenA': (52.311700953723935, 4.947731485309759)
+        }
+
+        for station in stations_coords.keys():
+            events['Distance (km) from station ' + station] = events['Locatie'].apply(
+                lambda venue: geopy.distance.distance(venues_coords[venue], stations_coords[station]).km)
+
     return events
 
 
@@ -330,7 +361,7 @@ def preprocess_gvb_data_for_modelling(gvb_df, station):
     df_ok = df_ok.reset_index(drop=True)
 
     # drop unnecessary columns
-    df_ok.drop(columns=['Datum', 'UurgroepOmschrijving', 'HalteNaam'], inplace=True)
+    df_ok.drop(columns=['Datum', 'UurgroepOmschrijving'], inplace=True)
 
     # rename columns
     df_ok.rename(columns={'Inchecks': 'check-ins', 'Uitchecks': 'check-outs'}, inplace=True)
@@ -631,7 +662,8 @@ def get_future_df(features, gvb_data, covid_stringency, measures, covid_cases_de
     df['holiday'] = np.where((df['datetime'].isin(holidays['Date'].values)), 1, 0)
     df['vacation'] = np.where((df['datetime'].isin(vacations['date'].values)), 1, 0)
 
-    df['planned_event'] = df.apply(lambda row: get_planned_event_value(row, events), axis=1)
+    df['planned_event'] = df.apply(lambda row: get_planned_event_value(row, events, gvb_data['HalteNaam'].values[0]),
+                                   axis=1)
 
     # Set forecast for temperature, rain, and wind speed.
     df = pd.merge(left=df, right=weather.drop(columns=['datetime']), left_on=['datetime', 'hour'],
@@ -684,7 +716,7 @@ def train_random_forest_regressor(X_train, y_train, X_val, y_val, hyperparameter
     return [model, r_squared, mae, rmse]
 
 
-def get_planned_event_value(gvb_merged_row, events_df):
+def get_planned_event_value(gvb_merged_row, events_df, station=None):
     mask = (events_df['Datum'] == gvb_merged_row['datetime'])
     if config_use_time_of_events:
         # each event is affecting the last config_max_hours_before_event hours before it happens
@@ -698,6 +730,11 @@ def get_planned_event_value(gvb_merged_row, events_df):
                 gvb_merged_row['datetime_full'] >= events_df['End datetime'])
         mask = (before_event_cond) | (after_event_cond)
 
+    event_station_distances = pd.Series(0)
+    if config_use_event_station_distance:
+        event_station_distances = events_df[mask][
+            'Distance (km) from station ' + (station if station else gvb_merged_row['HalteNaam'])]
+
     if config_use_normalized_visitors:
         visitors_normalized = events_df[mask]['visitors_normalized']
         if len(visitors_normalized) == 0:
@@ -705,11 +742,12 @@ def get_planned_event_value(gvb_merged_row, events_df):
 
         visitors_normalized = visitors_normalized.dropna()
         if len(visitors_normalized) == 0:
-            return 0.5  # Only nan values found
+            return 0.5 / (1 + event_station_distances.min())
 
-        return visitors_normalized.max()  # number of events * max normalized visitors
+        event_station_distances = event_station_distances.loc[visitors_normalized.index.values]
+        return visitors_normalized.loc[event_station_distances.idxmin()] / (1 + event_station_distances.min())  # number of events * max normalized visitors
     else:
-        return 1 if len(events_df[mask]) > 0 else 0
+        return 1 / (1 + event_station_distances.min()) if len(events_df[mask]) > 0 else 0
 
 
 def merge_gvb_with_datasources(gvb, weather, covid, measures, holidays, vacations, events, covid_cases_deaths_df):
@@ -832,6 +870,7 @@ def log_models(models, stations, features):
         models_log_dict['Model'].append(model[0])
 
         models_log_dict['UseNormalizedVisitors'].append(config_use_normalized_visitors)
+        models_log_dict['UseEventStationDistance'].append(config_use_event_station_distance)
         models_log_dict['IncludeInstagramEvents'].append(config_include_instagram_events)
         models_log_dict['IncludeTicketmasterEvents'].append(config_include_ticketmaster_events)
         models_log_dict['UseTimeOfEvents'].append(config_use_time_of_events)
