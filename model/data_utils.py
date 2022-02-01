@@ -49,8 +49,8 @@ def get_gvb_data(file_prefix):
     return gvb_df
 
 
-def get_gvb_data_json_checkout(gvb_df):
-    files = glob('gvb/**/**/**/*.json.gz')
+def get_gvb_data_json(gvb_df, folder_name):
+    files = glob('{}/**/**/**/*.json.gz'.format(folder_name))
     dfs = []
     for file in files:
         if not os.path.isfile(file) or not os.path.getsize(file) > 0:
@@ -60,19 +60,6 @@ def get_gvb_data_json_checkout(gvb_df):
     gvb_json_df = pd.concat(dfs)
 
     return gvb_df.append(gvb_json_df)
-
-def get_gvb_data_json_checkin(gvb_df):
-    files = glob('gvb-herkomst/**/**/**/*.json.gz')
-    dfs = []
-    for file in files:
-        if not os.path.isfile(file) or not os.path.getsize(file) > 0:
-            continue
-        dfs.append(pd.read_json(file, compression="gzip", lines=True))
-
-    gvb_json_df = pd.concat(dfs)
-
-    return gvb_df.append(gvb_json_df)
-
 
 
 # Ramon Dop - 12 jan 2021
