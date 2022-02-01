@@ -18,6 +18,7 @@ from sklearn.ensemble import RandomForestRegressor
 config = configparser.ConfigParser()
 config.optionxform = str
 config.read('config.ini')
+# NOTE: The below config variables are overwritten in the case that the server runs (file: predictions_server.py)
 config_use_normalized_visitors = config['DEFAULT'].getboolean('UseNormalizedVisitors')
 config_use_event_station_distance = config['DEFAULT'].getboolean('UseEventStationDistance')
 config_include_instagram_events = config['DEFAULT'].getboolean('IncludeInstagramEvents')
@@ -887,3 +888,22 @@ def log_models(models, stations, features):
                 config['DEFAULT'].keys()), inplace=True)
 
     models_log_df.to_csv('output/models_log.csv', index=False)
+
+
+def log_config():
+    config_dict = {'UseNormalizedVisitors': config_use_normalized_visitors,
+                   'UseEventStationDistance': config_use_event_station_distance,
+                   'IncludeInstagramEvents': config_include_instagram_events,
+                   'IncludeTicketmasterEvents': config_include_ticketmaster_events,
+                   'UseTimeOfEvents': config_use_time_of_events,
+                   'MaxHoursBeforeEvent': int(config_max_hours_before_event),
+                   'MaxMinutesBeforeEvent': int(config_max_minutes_before_event),
+                   'MaxHoursAfterEvent': int(config_max_hours_after_event),
+                   'MaxMinutesAfterEvent': int(config_max_minutes_after_event),
+                   'UseCOVIDStringency': config_use_covid_stringency,
+                   'UseCOVIDMeasures': config_use_covid_measures,
+                   'UseCOVIDCases': config_use_covid_cases,
+                   'UseCOVIDDeaths': config_use_covid_deaths}
+
+    with open('output/config.json', 'w') as outfile:
+        json.dump(config_dict, outfile)

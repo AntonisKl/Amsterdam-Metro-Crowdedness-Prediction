@@ -218,3 +218,5 @@ def predict_and_save(models, X_predict_dfs):
 
         prediction.to_csv(
             ('output/{}/prediction_next_week_{}.csv'.format(stations[i], date.today().strftime("%b-%d-%Y"))))
+
+    data_utils.log_config()
