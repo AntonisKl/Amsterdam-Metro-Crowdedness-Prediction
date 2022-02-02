@@ -663,9 +663,10 @@ def get_future_df(features, gvb_data, covid_stringency, measures, covid_cases_de
         for column in measures.columns:
             df[column].fillna(most_recent_measures[column], inplace=True)
 
-    # Set recent crowd
-    df[['check-ins_week_ago', 'check-outs_week_ago']] = df.apply(lambda x: get_crowd_last_week(gvb_data, x), axis=1,
-                                                                 result_type="expand")
+    if 'check-ins_week_ago' in features or 'check-outs_week_ago' in features:
+        # Set recent crowd
+        df[['check-ins_week_ago', 'check-outs_week_ago']] = df.apply(lambda x: get_crowd_last_week(gvb_data, x), axis=1,
+                                                                     result_type="expand")
 
     if not 'datetime' in features:
         features.append('datetime')  # Add datetime to make storing in database easier
