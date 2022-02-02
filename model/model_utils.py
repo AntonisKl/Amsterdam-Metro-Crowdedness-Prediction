@@ -26,8 +26,8 @@ def read_data():
     bestemming_2021 = data_utils.get_gvb_data_json(bestemming_2021, 'gvb')
     herkomst_2021 = data_utils.get_gvb_data_json(herkomst_2021, 'gvb-herkomst')
 
-    knmi_obs = data_utils.get_knmi_data('knmi/knmi-observations/**/**/**/*')
-    knmi_preds = data_utils.get_knmi_data('knmi/knmi/**/**/**/*.json.gz')
+    knmi_obs = data_utils.get_knmi_data('./data/knmi/knmi-observations/**/**/**/*')
+    knmi_preds = data_utils.get_knmi_data('./data/knmi/knmi/**/**/**/*.json.gz')
 
     covid_measures_df = data_utils.get_covid_measures()
     covid_cases_deaths_df = data_utils.get_covid_cases_deaths()

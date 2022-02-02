@@ -37,7 +37,7 @@ config_use_covid_deaths = config['DEFAULT'].getboolean('UseCOVIDDeaths')
 def get_gvb_data(file_prefix):
     gvb_df = None
 
-    for filepath in glob('gvb/**/**/**/{}*.csv'.format(file_prefix)):
+    for filepath in glob('./data/gvb/**/**/**/{}*.csv'.format(file_prefix)):
         if not os.path.isfile(filepath) or not os.path.getsize(filepath) > 0:
             continue
 
@@ -51,7 +51,7 @@ def get_gvb_data(file_prefix):
 
 
 def get_gvb_data_json(gvb_df, folder_name):
-    files = glob('{}/**/**/**/*.json.gz'.format(folder_name))
+    files = glob('./data/{}/**/**/**/*.json.gz'.format(folder_name))
     dfs = []
     for file in files:
         if not os.path.isfile(file) or not os.path.getsize(file) > 0:
@@ -167,7 +167,7 @@ def get_events():
     Event data from static file. We can store events in the database in the near future. When possible, we can get it from an API.
     """
 
-    events = pd.read_excel('events_zuidoost.xlsx', sheet_name='Resultaat', header=1)
+    events = pd.read_excel('./data/events/events_zuidoost.xlsx', sheet_name='Resultaat', header=1)
 
     # Clean
     events.dropna(how='all', inplace=True)
@@ -190,7 +190,7 @@ def get_events():
 
     if config_include_instagram_events:
         # Prepare instagram events
-        events_instagram = pd.read_csv('../instagram-event-scraper/events.csv', usecols=[1, 6])
+        events_instagram = pd.read_csv('./data/events/instagram/events.csv', usecols=[1, 6])
         events_instagram.rename(columns={'location': 'Locatie', 'event_date': 'Datum'}, inplace=True)
         preprocess_events_dates(events_instagram)
 
@@ -212,7 +212,7 @@ def get_events():
 
     if config_include_ticketmaster_events:
         # Prepare ticketmaster events
-        for filepath in glob('../ticketmaster-event-fetcher/events*.csv'):
+        for filepath in glob('./data/events/ticketmaster/events*.csv'):
             if not os.path.isfile(filepath) or not os.path.getsize(filepath) > 0:
                 continue
 
