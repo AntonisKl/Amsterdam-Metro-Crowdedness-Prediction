@@ -557,19 +557,17 @@ def get_crowd_last_week(df, row):
     week_ago = row['datetime'] - timedelta(weeks=1)
     subset_with_hour = df[(df['datetime'] == week_ago) & (df['hour'] == row['hour'])]
 
-    # If crowd from last week is not available at exact date- and hour combination, then get average crowd of last week.
-    subset_week_ago = df[(df['year'] == row['year']) & (df['week'] == row['week']) & (df['hour'] == row['hour'])]
-
-    checkins_week_ago = 0
-    checkouts_week_ago = 0
-
     if len(subset_with_hour) > 0:  # return crowd from week ago at the same day/time (hour)
         checkins_week_ago = subset_with_hour['check-ins'].mean()
         checkouts_week_ago = subset_with_hour['check-outs'].mean()
-    elif len(subset_week_ago) > 0:  # return average crowd the hour group a week ago
-        checkins_week_ago = subset_week_ago['check-ins'].mean()
-        checkouts_week_ago = subset_week_ago['check-outs'].mean()
+        return [checkins_week_ago, checkouts_week_ago]
 
+    # If crowd from last week is not available at exact date- and hour combination, then get average crowd of last week.
+    subset_week_ago = df[(df['year'] == row['year']) & (df['week'] == row['week']) & (df['hour'] == row['hour'])]
+
+    # return average crowd the hour group a week ago
+    checkins_week_ago = subset_week_ago['check-ins'].mean()
+    checkouts_week_ago = subset_week_ago['check-outs'].mean()
     return [checkins_week_ago, checkouts_week_ago]
 
 
