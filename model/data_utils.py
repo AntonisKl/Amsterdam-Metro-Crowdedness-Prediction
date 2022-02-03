@@ -608,10 +608,7 @@ def get_future_df(features, gvb_data, covid_stringency, measures, covid_cases_de
     Create empty data frame for predictions of the target variable for the specfied prediction period
     """
 
-    this_year = date.today().isocalendar()[0]
-    this_week = date.today().isocalendar()[1]
-    firstdayofweek = datetime.strptime(f'{this_year}-W{int(this_week)}-1', "%Y-W%W-%w").date()
-    prediction_date_range = pd.date_range(firstdayofweek, periods=8, freq='D')
+    prediction_date_range = pd.date_range(pd.datetime.today(), periods=8, freq='D')
     prediction_date_range_hour = pd.date_range(prediction_date_range.min(), prediction_date_range.max(),
                                                freq='h').delete(-1)
 
