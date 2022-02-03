@@ -2,7 +2,7 @@
 
 The aim of this full-stack project is to predict and visualize crowdedness for 1 week ahead in 3 metro stations of
 Amsterdam: Centraal Station, Station Zuid and Station Bijlmer ArenA. Except for the number of check-ins & check-outs for
-each station, external factors are considered such as weather, events, holidays & vacations and COVID-19 pandemic.
+each station, external factors are considered such as weather, events, holidays, vacations and COVID-19 pandemic.
 
 ## Description
 
@@ -16,6 +16,16 @@ The project consists of the following components:
     - `predictions.ipynb` &#8594; notebook for running model pipeline
     - `predictions_server.py` &#8594; Flask server for running model pipeline
     - `UI` &#8594; front-end for running model pipeline
+
+## Model Pipeline
+
+1. Read and preprocess data
+2. Merge data of external factors (e.g. weather) with check-ins & check-outs per hour
+3. Interpolate missing check-ins & check-outs by using Random Forest algorithm
+4. Split dataset into training, validation and test set
+5. Create a separate Random Forest model for each of the 3 metro stations
+6. Train each model with historical data (X)
+7. Predict the check-ins & check-outs for each hour for 1 week ahead (Y)
 
 ## Getting Started
 
@@ -84,7 +94,7 @@ model
 ```
 
 * **WARNING**: For the model to produce valid predictions, **check-ins & check-outs** (`model/data/gvb/`
-  & `model/data/gvb-herkomst/`) and weather data (`model/data/knmi/`) should be manually up-to-date.
+  & `model/data/gvb-herkomst/`) and weather data (`model/data/knmi/`) should be manually up-to-date
 
 ### Executing programs
 
