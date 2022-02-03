@@ -54,6 +54,7 @@ def train_and_predict():
     features = features_s.split(',')
 
     config_use_normalized_visitors = request.args.get('useNormalizedVisitors', type=strtobool)
+    config_use_event_station_distance = request.args.get('useEventStationDistance', type=strtobool)
     config_include_instagram_events = request.args.get('includeInstagramEvents', type=strtobool)
     config_include_ticketmaster_events = request.args.get('includeTicketmasterEvents', type=strtobool)
     config_use_time_of_events = request.args.get('useTimeOfEvents', type=strtobool)
@@ -67,6 +68,9 @@ def train_and_predict():
     # Set configuration
     if config_use_normalized_visitors is not None:
         data_utils.config_use_normalized_visitors = config_use_normalized_visitors
+
+    if config_use_event_station_distance is not None:
+        data_utils.config_use_event_station_distance = config_use_event_station_distance
 
     if config_include_instagram_events is not None:
         data_utils.config_include_instagram_events = config_include_instagram_events
