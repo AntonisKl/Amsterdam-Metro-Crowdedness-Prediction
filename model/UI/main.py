@@ -97,6 +97,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 # Create the app.  
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets, long_callback_manager=long_callback_manager)
+server = app.server
 app.title = 'GVB Predictions'
 app.layout = html.Div([
     html.Div(
