@@ -39,7 +39,6 @@ def get_response_json(url):
     response_json = response.json()
 
     if 'errors' in response_json:  # error encountered or last page reached
-        print(response_json['errors'])
         return None
 
     return response_json
