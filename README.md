@@ -1,6 +1,6 @@
 # Amsterdam Metro Crowdedness Prediction
 
-The aim of this full-stack project is to predict and visualize crowdedness for the current week in 3 metro stations of
+The aim of this full-stack project is to predict and visualize crowdedness for 1 week ahead in 3 metro stations of
 Amsterdam: Centraal Station, Station Zuid and Station Bijlmer ArenA. Except for the number of check-ins & check-outs for
 each station, external factors are considered such as weather, events, holidays & vacations and COVID-19 pandemic.
 
