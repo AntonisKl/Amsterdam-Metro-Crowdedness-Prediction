@@ -1,0 +1,16 @@
+config==0.5.1
+dash==2.0.0
+dash_extensions==0.0.67
+dash_leaflet==0.1.23
+dash_loading_spinners==0.1.0
+diskcache==5.4.0
+Flask==1.1.2
+Flask_Script==2.0.6
+geopy==2.2.0
+numpy==1.20.1
+pandas==1.2.4
+plotly==5.5.0
+pytz==2021.1
+requests==2.25.1
+scikit_learn==1.0.2
+workalendar==16.2.0

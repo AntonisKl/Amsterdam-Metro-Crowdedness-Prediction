@@ -1,8 +1,0 @@
-Flask==1.1.2
-Flask_Script==2.0.6
-geopy==2.2.0
-numpy==1.20.1
-pandas==1.2.4
-requests==2.25.1
-scikit_learn==1.0.2
-workalendar==16.2.0
