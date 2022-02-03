@@ -747,21 +747,19 @@ def merge_gvb_with_datasources(gvb, weather, covid, measures, holidays, vacation
         gvb_merged = pd.merge(gvb_merged, measures, how='left', left_on='datetime', right_on='date')
         gvb_merged[measures.columns] = gvb_merged[measures.columns].fillna(0)
 
-    if config_use_covid_cases:
-        # Add COVID cases
-        covid_cases_deaths_df['cases'] = covid_cases_deaths_df['cases'].fillna(0)
-        covid_cases_deaths_df['cases'] = covid_cases_deaths_df['cases'].astype('float64')
+    if config_use_covid_cases or config_use_covid_deaths:
+        # Add COVID cases and/or deaths
+        covid_cases_deaths_df.astype({'cases': 'float64', 'deaths': 'float64'})
         covid_cases_deaths_df['datetime'] = pd.to_datetime(covid_cases_deaths_df['datetime'])
-        gvb_merged = pd.merge(gvb_merged, covid_cases_deaths_df.drop(columns=['deaths']), on='datetime', how='left')
-        gvb_merged['cases'] = gvb_merged['cases'].fillna(0)
+        if not config_use_covid_cases or not config_use_covid_deaths:
+            covid_cases_deaths_df.drop(columns=['deaths' if config_use_covid_cases else 'cases'], inplace=True)
 
-    if config_use_covid_deaths:
-        # Add COVID deaths
-        covid_cases_deaths_df['deaths'] = covid_cases_deaths_df['deaths'].fillna(0)
-        covid_cases_deaths_df['deaths'] = covid_cases_deaths_df['deaths'].astype('float64')
-        covid_cases_deaths_df['datetime'] = pd.to_datetime(covid_cases_deaths_df['datetime'])
-        gvb_merged = pd.merge(gvb_merged, covid_cases_deaths_df.drop(columns=['cases']), on='datetime', how='left')
-        gvb_merged['deaths'] = gvb_merged['deaths'].fillna(0)
+        gvb_merged = pd.merge(gvb_merged, covid_cases_deaths_df, on='datetime', how='left')
+
+        if config_use_covid_cases:
+            gvb_merged['cases'] = gvb_merged['cases'].fillna(0)
+        if config_use_covid_deaths:
+            gvb_merged['deaths'] = gvb_merged['deaths'].fillna(0)
 
     return gvb_merged
 
