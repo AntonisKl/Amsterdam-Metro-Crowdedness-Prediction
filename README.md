@@ -1,8 +1,8 @@
 # Amsterdam Metro Crowdedness Prediction
 
-The aim of this full-stack project is to predict and visualize crowdedness in 3 metro stations of Amsterdam: Centraal
-Station, Station Zuid and Station Bijlmer ArenA. Except for the number of check-ins & check-outs for each station,
-external factors are considered such as weather, events, holidays & vacations and COVID-19 pandemic.
+The aim of this full-stack project is to predict and visualize crowdedness for the current week in 3 metro stations of
+Amsterdam: Centraal Station, Station Zuid and Station Bijlmer ArenA. Except for the number of check-ins & check-outs for
+each station, external factors are considered such as weather, events, holidays & vacations and COVID-19 pandemic.
 
 ## Description
 
@@ -27,7 +27,8 @@ The project consists of the following components:
 ### Installing
 
 * Run `pip install -r requirements.txt`
-* Datasets for **check-ins & check-outs**, **weather** and **events** are expected to be in `model/` as per this
+* Datasets for **check-ins & check-outs** (`model/data/gvb/` & `model/data/gvb-herkomst/`), **
+  weather** (`model/data/knmi/`) and **events** (`model/data/events/`) are expected to be in `model/` as per this
   directory structure:
 
 ```
@@ -82,6 +83,9 @@ model
             │   ...
 ```
 
+* **WARNING**: For the model to produce valid predictions, **check-ins & check-outs** (`model/data/gvb/`
+  & `model/data/gvb-herkomst/`) and weather data (`model/data/knmi/`) should be manually up-to-date.
+
 ### Executing programs
 
 #### instagram-event-scraper
@@ -107,6 +111,7 @@ model
     * See below bullet point "After execution"
 * Using front-end and back-end server:
     * Go to `model/`, run `python predictions_server.py` and wait for the server output to show "Preprocessing finished"
+      and be up
     * Go to `model/UI/`, run `python test.py` and wait for the front-end server to be up
     * Open the URL of the front-end server on a browser
     * Choose your desired parameters for the model and press "Submit"
