@@ -152,8 +152,9 @@ app.layout = html.Div([
                                         {'label': 'Include Instagram events', 'value': 'includeInstagramEvents:true'},
                                         {'label': 'Include Ticketmaster events', 'value': 'includeTicketmasterEvents:true'},
                                         {'label': 'Use events\' attendance', 'value': 'useNormalizedVisitors:true'},
-                                        {'label': 'Affect only 3 hours before events\' start time', 'value': 'useTimeOfEvents:true'}
-                                    ],
+                                        {'label': 'Affect only 3 hours before and after the events', 'value': 'useTimeOfEvents:true'}, #after event
+                                        {'label': 'Use events\' location',  'value': 'useEventStationDistance:true'}                                
+                                        ],
                                     value=[],
                                     multi=True,
                                     className = 'dropdown-class',
@@ -177,12 +178,10 @@ app.layout = html.Div([
                                 ]),
                                 html.Div([
                                     html.Button('SUBMIT', id = 'submit-button', n_clicks=0),
+                                    html.Button('Recommended Model', id = 'rec-button', style={'float': 'right'}, n_clicks=0)
                                 ],
                                     className='submit-btn'
                                 ),
-                                html.Div([
-
-                                ])
                             ],)
                         ],
                             className='row'
@@ -263,7 +262,7 @@ app.layout = html.Div([
 def marker_click(one, two, three, date_value, submit, features, events, covid):
     global marker_name
     global complete
-    print(dash.callback_context.triggered[0]["prop_id"].split(".")[0])
+    #print(dash.callback_context.triggered[0]["prop_id"].split(".")[0])
 
     if dash.callback_context.triggered[0]["prop_id"].split(".")[0] in ('centraal', 'zuid', 'bijlmer'):
         marker_id = dash.callback_context.triggered[0]["prop_id"].split(".")[0]
@@ -280,7 +279,7 @@ def marker_click(one, two, three, date_value, submit, features, events, covid):
         if marker_name != 'Select a station to update the following graph.':
 
             selected_output = getlatestfile(marker_name, date_value)
-            print(selected_output)
+
             fig = setgraphinfo(selected_output, marker_name)
 
     elif dash.callback_context.triggered[0]["prop_id"].split(".")[0] == 'date-picker-single':
@@ -290,7 +289,6 @@ def marker_click(one, two, three, date_value, submit, features, events, covid):
         fig = setgraphinfo(selected_output, marker_name)
 
     elif dash.callback_context.triggered[0]["prop_id"].split(".")[0] == 'submit-button':
-        print(date_value)
         result = getpredictions(features, events, covid)
 
         if result == True:
@@ -301,6 +299,81 @@ def marker_click(one, two, three, date_value, submit, features, events, covid):
             complete = 'Error'
     return marker_name, fig
 
+
+
+@app.callback([Output('features-dropdown', 'value'),
+                Output('covid-dropdown', 'value'),
+                Output('events-dropdown', 'value')],
+              [Input(marker.id, "n_clicks") for marker in markers_ls],
+              Input('date-picker-single', 'date')
+              )
+def update_features(one, two, three, date_value):
+    features_values = []
+    covid_values = []
+    event_values = []
+    global marker_name
+
+    if dash.callback_context.triggered[0]["prop_id"].split(".")[0] in ('centraal', 'zuid', 'bijlmer'):
+        marker_id = dash.callback_context.triggered[0]["prop_id"].split(".")[0]
+
+        if marker_id == 'zuid':
+            marker_name = 'Station Zuid'
+        elif marker_id == 'bijlmer':
+            marker_name = 'Station Bijlmer ArenA'
+        elif marker_id == 'centraal':
+            marker_name = 'Centraal Station'
+        else:
+            marker_name = 'Select a station to update the following graph.'
+
+        if marker_name != 'Select a station to update the following graph.':
+
+            selected_output = getlatestfile(marker_name, date_value)
+            event_values = read_config()
+
+    elif dash.callback_context.triggered[0]["prop_id"].split(".")[0] == 'date-picker-single':
+        selected_output = getlatestfile(marker_name, date_value)
+        event_values = read_config()
+
+
+     #Features dropdown
+
+    for col in selected_output.columns:
+        #print(col)
+        if col in ('year', 'month', 'weekday','holiday', 'vacation',
+                                'temperature', 'wind_speed', 'precipitation_h',  'global_radiation',
+                                'check-ins_week_ago', 'check-outs_week_ago'):
+            features_values.append(col)
+        if col in ('stringency', 'cases', 'deaths','AdaptationOfWorkplace'):
+            if col == 'stringency':
+                covid_values.append('useCOVIDStringency:true')
+            elif col == 'cases':
+                covid_values.append('useCOVIDCases:true')
+            elif col == 'deaths':
+                covid_values.append('useCOVIDDeaths:true')
+            else:
+                covid_values.append('useCOVIDMeasures:true')
+
+    return features_values, covid_values, event_values
+
+
+def read_config():
+    selected_values = []
+
+    with open('../output/config.json', 'r') as f:
+        data = json.load(f)
+            
+    if data['UseNormalizedVisitors'] == 1:
+        selected_values.append('useNormalizedVisitors:true')
+    if data['UseEventStationDistance'] == True:
+        selected_values.append('useEventStationDistance:true')
+    if data['IncludeInstagramEvents'] == 1:
+        selected_values.append('includeInstagramEvents:true')
+    if data['IncludeTicketmasterEvents'] == 1:
+        selected_values.append('includeTicketmasterEvents:true')
+    if data['UseTimeOfEvents'] == 1:
+        selected_values.append('useTimeOfEvents:true')
+
+    return selected_values
 
 def getlatestfile(marker, date):
     # Get latest file from the folder
@@ -369,7 +442,8 @@ def getpredictions(features, events, covid):
        'includeInstagramEvents':'false',
         'includeTicketmasterEvents':'false',
         'useTimeOfEvents':'false',
-        'useNormalizedVisitors':'false'
+        'useNormalizedVisitors':'false',
+        'useEventStationDistance': 'false'
     }
 
     covidDict = {
@@ -420,7 +494,7 @@ def getpredictions(features, events, covid):
     PARAMS.update(events)
     PARAMS.update(covid)
 
-    print(PARAMS)
+    #print(PARAMS)
     r= requests.get(url = URL, params = PARAMS)
 
     # Extracting data in json format
