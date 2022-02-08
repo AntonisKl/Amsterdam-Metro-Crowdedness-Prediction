@@ -135,7 +135,7 @@ def split_data_for_modelling(gvb_dfs_final, covid_df, covid_measures_df, covid_c
         X_test_splits.append(split[2][features])
         y_test_splits.append(split[2][targets])
 
-    # Dataframes to predict cdfheck-ins and check-outs of next week
+    # Dataframes to predict check-ins and check-outs of next week
     X_predict_dfs = []
 
     for df in gvb_dfs_final:

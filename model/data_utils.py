@@ -516,7 +516,7 @@ def interpolate_missing_values(data_to_interpolate):
     # Select rows which need interpolation
     df_to_interpolate = df.drop(df.loc[(df['check-ins'].isna() == True) & (df['check-outs'].isna() == True)].index)
 
-    # Interpolate check-ins
+    # Interpolate check-ins & check-outs
     checkins_missing = df_to_interpolate[
         (df_to_interpolate['check-outs'].isna() == False) & (df_to_interpolate['check-ins'].isna() == True)].copy()
     checkouts_missing = df_to_interpolate[
@@ -529,19 +529,11 @@ def interpolate_missing_values(data_to_interpolate):
         checkouts_missing['stringency'] = checkouts_missing['stringency'].replace(np.nan, 0)
         checkouts_missing['check-outs'] = checkouts_interpolator.predict(
             checkouts_missing[['hour', 'year', 'weekday', 'month', 'stringency', 'holiday', 'check-ins']])
-
     else:
         checkins_missing['check-ins'] = checkins_interpolator.predict(
             checkins_missing[['hour', 'year', 'weekday', 'month', 'holiday', 'check-outs']])
         checkouts_missing['check-outs'] = checkouts_interpolator.predict(
             checkouts_missing[['hour', 'year', 'weekday', 'month', 'holiday', 'check-ins']])
-
-    # Interpolate check-outs
-    checkouts_missing = df_to_interpolate[
-        (df_to_interpolate['check-ins'].isna() == False) & (df_to_interpolate['check-outs'].isna() == True)].copy()
-    checkouts_missing['stringency'] = checkouts_missing['stringency'].replace(np.nan, 0)
-    checkouts_missing['check-outs'] = checkouts_interpolator.predict(
-        checkouts_missing[['hour', 'year', 'weekday', 'month', 'stringency', 'holiday', 'check-ins']])
 
     # Insert interpolated values into main dataframe
     for index, row in checkins_missing.iterrows():

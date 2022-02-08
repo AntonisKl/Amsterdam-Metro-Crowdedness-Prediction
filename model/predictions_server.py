@@ -105,6 +105,10 @@ def train_and_predict():
     # features = ['year', 'month', 'weekday', 'hour', 'holiday', 'vacation', 'planned_event', 'temperature', 'wind_speed',
     #             'precipitation_h', 'global_radiation', 'stringency']
 
+    for gvb_df_final in gvb_dfs_final:
+        gvb_df_final['planned_event'] = gvb_df_final.apply(lambda row: data_utils.get_planned_event_value(row, events),
+                                                           axis=1)
+
     data_splits, X_train_splits, y_train_splits, X_validation_splits, y_validation_splits, X_test_splits, y_test_splits, X_predict_dfs = split_data_for_modelling(
         gvb_dfs_final, covid_df, covid_measures_df, covid_cases_deaths_df, holiday_df, vacations_df, knmi_forecast, events,
         features)
